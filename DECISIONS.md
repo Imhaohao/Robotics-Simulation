@@ -28,6 +28,8 @@ Times are America/Los_Angeles.
 
 **Painting the real hand out of the wrist plate, a third time (2026-11-16, 5:07pm PT).** The fingers are not gray. On the grasp frame their value is about 30 and their saturation is about 250, hue about 9, which is why a low-saturation mask missed them and ate the cup shadow instead. A mask of that dark red, closed over the screw holes and filled with Navier-Stokes, still leaves the finger silhouette as a brown smear. Same result as the earlier smear and the striped wood copy. The real hand stays in the plate.
 
+**Replacing those fingers with the simulated table (2026-11-16, 5:20pm PT).** The same dark-red mask, with the hole filled from the wrist camera’s own render instead of an inpaint. The table texture’s mean color is about (200, 152, 70), and the lights clip the wrist view of it to about (255, 255, 110), so the hole was a bright yellow copy of the fingers. Shifting that color to the wood just outside the hand turned the yellow into a flat brown patch that is still the shape of the fingers. A full simulated wrist, with no real plate, is the same clipped table. Not shipped. The real hand stays.
+
 **The fingertip-plus-pad rim is retired.** The pads reach 21.6 mm past the pinch and the pad box adds 9.4 mm of support. That sum was the clearance that kept the departing hand off a shorter cup. It is a fact about the gripper. It is not the cup’s height, and the geometry score no longer awards points for matching it.
 
 **Teal cube from ext1 stereo plus the block’s xy bias.** Nothing grasps it, so the arm cannot locate it. The bias is the offset that takes the stereo block onto the pinch. The cube then sits on the table and does not move.
