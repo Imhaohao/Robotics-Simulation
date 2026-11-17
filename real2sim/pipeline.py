@@ -27,7 +27,7 @@ from real2sim.kinematics import (
 from real2sim.metrics import evaluate, project
 from real2sim.replay import rollout
 from real2sim.scene import SceneSpec, build_model
-from real2sim.stereo import reconstruct
+from real2sim.stereo import measure_cup, reconstruct
 from real2sim.textures import median_rgba, write_textures
 
 
@@ -106,23 +106,21 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
         teal_half = 0.018
         teal_rgba = _tuple4(sampled["teal"]) if sampled["teal"] is not None else (0.16, 0.62, 0.52, 1.0)
 
-    stereo_radius = float(np.max(blue.size[:2]) / 2.0) if blue is not None else 0.04
-    # The stereo radius passes through. The clip is only the range of a tabletop cup.
-    bottom_r = float(np.clip(stereo_radius, 0.015, 0.05))
-    opening = np.flatnonzero(episode.gripper_position[insert:] < 0.25)
-    last_hold = insert + int(opening[0]) if len(opening) else release
-    offsets = np.linalg.norm(pinch[insert : last_hold + 1, :2] - cup_xy, axis=1)
-    # The mouth has to contain the block's corner, not only its center.
-    corner = float(half * np.sqrt(2.0))
-    top_r = float(np.clip(max(bottom_r, float(offsets.max()) + corner, stereo_radius), 0.02, 0.08))
+    if blue is None:
+        raise RuntimeError("the ext1 stereo frame has no blue cup")
+    cloud_hsv = cv2.cvtColor(cloud.colors_bgr.reshape(-1, 1, 3), cv2.COLOR_BGR2HSV).reshape(-1, 3)
+    blue_mask = (cloud_hsv[:, 0] >= 88) & (cloud_hsv[:, 0] <= 115) & (cloud_hsv[:, 1] >= 80) & (cloud_hsv[:, 2] >= 40)
+    hull_height, hull_bottom, hull_top = measure_cup(
+        cloud.points[blue_mask], plane.height(cloud.points)[blue_mask], blue.centroid[:2]
+    )
+    # A clip this wide does not bind the measured cup. It only rejects a broken cloud.
+    bottom_r = float(np.clip(hull_bottom, 0.015, 0.06))
+    top_r = float(np.clip(hull_top, 0.015, 0.06))
+    height = float(np.clip(hull_height, 0.03, 0.12))
+    cup_hull_clipped = (bottom_r != hull_bottom) or (top_r != hull_top) or (height != hull_height)
     protrusion, pad_depth = fingertip_below_pinch(
         robot, episode.joint_position[insert], float(episode.gripper_position[insert])
     )
-    near = np.linalg.norm(pinch[insert:, :2] - cup_xy, axis=1) < (top_r + 0.04)
-    lowest_pinch = float(np.min(pinch[insert:, 2][near])) if np.any(near) else float(pinch[insert, 2])
-    # Rim is the fingertip, then one measured pad-depth lower so the face does not catch it.
-    rim_z = lowest_pinch - protrusion - pad_depth
-    height = float(np.clip(rim_z - table_z, 0.04, 0.10))
 
     xs = [0.0, float(block_xy[0]), float(cup_xy[0]), float(teal_xy[0])]
     ys = [0.0, float(block_xy[1]), float(cup_xy[1]), float(teal_xy[1])]
@@ -137,11 +135,13 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
         "block_half_m": half,
         "block_source": block_source,
         "block_width_clipped": block_clipped,
-        "stereo_cup_radius_m": stereo_radius,
+        "stereo_cup_radius_m": hull_bottom,
+        "hull_height_m": hull_height,
+        "hull_bottom_radius_m": hull_bottom,
+        "hull_top_radius_m": hull_top,
+        "cup_hull_clipped": cup_hull_clipped,
         "fingertip_protrusion_m": protrusion,
         "pad_depth_m": pad_depth,
-        "rim_clearance_m": float(lowest_pinch - rim_z),
-        "release_offset_m": float(offsets.max()) if len(offsets) else 0.0,
     }
     scene = SceneSpec(
         table_z=table_z,
@@ -287,8 +287,12 @@ def run(
     )
     grasp_index, _ = grasp_release_indices(episode.gripper_position)
     for when, index in (("frame0", 0), ("grasp", int(grasp_index))):
-        for camera_name in ("ext1", "ext2"):
-            camera = episode.cameras[camera_name]
+        cameras = {
+            "ext1": episode.cameras["ext1"],
+            "ext2": episode.cameras["ext2"],
+            "wrist": replace(episode.cameras["wrist"], extrinsics=episode.wrist_extrinsics[index]),
+        }
+        for camera_name, camera in cameras.items():
             for label, point in (
                 ("yellow", result.yellow_path[index]),
                 ("blue", result.cup_path[index]),

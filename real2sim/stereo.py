@@ -213,6 +213,65 @@ def reconstruct(camera: Camera, stereo_bgr: np.ndarray) -> tuple[Plane, Cloud, d
     return plane, cloud, found
 
 
+def measure_cup(points: np.ndarray, height: np.ndarray, anchor_xy: np.ndarray) -> tuple[float, float, float]:
+    """Height and the two radii of the blue cup, from the stereo points only.
+
+    The cloud has two clusters: the rim, and the interior floor. The wall between
+    them is sparse. The height is the median of the height mode, because the
+    95th percentile is a thin tail above that mode. Each radius is a circle fit
+    to that band. The 90th percentile of distance from the median is not a
+    radius: on a partial arc it is larger than the circle.
+    """
+    near = np.linalg.norm(points[:, :2] - anchor_xy, axis=1) < 0.06
+    chosen = points[near]
+    column = height[near]
+    keep = (column > 0.008) & (column < 0.12)
+    chosen, column = chosen[keep], column[keep]
+    if len(chosen) < 40:
+        raise RuntimeError("the stereo cup does not have enough points")
+    # The rim is the mode of the height histogram. The 95th percentile is the
+    # sparse tail above that mode, not a second rim.
+    edges = np.arange(0.005, 0.125, 0.005)
+    counts, _ = np.histogram(column, bins=edges)
+    mode = float(edges[int(np.argmax(counts))])
+    rim_band = chosen[np.abs(column - mode) <= 0.007]
+    cup_height = float(np.median(column[np.abs(column - mode) <= 0.007]))
+    top = rim_band if len(rim_band) >= 20 else chosen[column >= 0.75 * cup_height]
+    bottom = chosen[column <= 0.33 * cup_height]
+    if len(top) < 20 or len(bottom) < 20:
+        raise RuntimeError("the stereo cup is missing a rim or a base")
+    top_radius = _circle_radius(top[:, :2])
+    bottom_radius = _circle_radius(bottom[:, :2])
+    return cup_height, bottom_radius, top_radius
+
+
+def _circle_radius(points: np.ndarray) -> float:
+    """Radius of the rim or the base. A partial arc's 90th percentile is not a radius."""
+    rng = np.random.default_rng(SEED)
+    best_radius = None
+    best_count = -1
+    for _ in range(400):
+        sample = points[rng.choice(len(points), 3, replace=False)]
+        design = np.c_[2.0 * sample[:, 0], 2.0 * sample[:, 1], np.ones(3)]
+        try:
+            solved = np.linalg.solve(design, np.sum(sample * sample, axis=1))
+        except np.linalg.LinAlgError:
+            continue
+        center = solved[:2]
+        radius = float(np.sqrt(solved[2] + center @ center))
+        if not 0.015 < radius < 0.07:
+            continue
+        error = np.abs(np.linalg.norm(points - center, axis=1) - radius)
+        count = int(np.count_nonzero(error < 0.004))
+        if count > best_count:
+            best_count = count
+            best_radius = radius
+    if best_radius is None:
+        center = np.median(points, axis=0)
+        return float(np.percentile(np.linalg.norm(points - center, axis=1), 90))
+    return best_radius
+
+
 def image_centroid(frame_bgr: np.ndarray, name: str) -> np.ndarray | None:
     hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
     ranges = {

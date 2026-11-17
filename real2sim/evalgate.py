@@ -43,8 +43,12 @@ def _pose_delta(left: dict, right: dict) -> float:
 def _reproj_ok(numbers: dict) -> tuple[bool, list[str]]:
     missing = []
     for when in ("frame0", "grasp"):
-        for camera in ("ext1", "ext2"):
-            for obj in ("yellow", "blue"):
+        for camera in ("ext1", "ext2", "wrist"):
+            # At the grasp the cup is a sliver on the wrist border and the strict
+            # mask is empty. The grasped object is the block. The cup is scored
+            # on the wrist at frame 0, where the mask is the cup.
+            objects = ("yellow",) if when == "grasp" and camera == "wrist" else ("yellow", "blue")
+            for obj in objects:
                 key = f"reproj_{when}_{camera}_{obj}_px"
                 if key not in numbers or float(numbers[key]) >= REPROJ_PX:
                     missing.append(key)
@@ -64,12 +68,18 @@ def _points(nominal: dict, gates: dict, visual: dict) -> dict:
         geometry += 4
     elif provenance.get("block_source") == "finger_gap":
         geometry += 2
-    stereo_radius = float(provenance.get("stereo_cup_radius_m", 0.0))
+    # The cup's two radii and its height are the stereo hull. The fingertip clearance is not a cup measurement.
     bottom = float(nominal["scene"]["cup_bottom_radius"])
-    if abs(bottom - stereo_radius) < 0.003:
+    top = float(nominal["scene"]["cup_top_radius"])
+    height = float(nominal["scene"]["cup_height"])
+    radii_match = (
+        abs(bottom - float(provenance.get("hull_bottom_radius_m", -1.0))) < 0.003
+        and abs(top - float(provenance.get("hull_top_radius_m", -1.0))) < 0.003
+        and not provenance.get("cup_hull_clipped")
+    )
+    if radii_match:
         geometry += 2
-    expected_clearance = float(provenance["fingertip_protrusion_m"]) + float(provenance["pad_depth_m"])
-    if abs(float(provenance["rim_clearance_m"]) - expected_clearance) < 0.002:
+    if abs(height - float(provenance.get("hull_height_m", -1.0))) < 0.003 and not provenance.get("cup_hull_clipped"):
         geometry += 2
     realism = {
         "outcome_and_tracking": outcome,

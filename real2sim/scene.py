@@ -36,83 +36,41 @@ def _quat_z(angle: float) -> list[float]:
     return [math.cos(angle / 2.0), 0.0, 0.0, math.sin(angle / 2.0)]
 
 
-def _cup_shell(scene: SceneSpec) -> tuple[list[float], list[int]]:
-    """An open frustum. Collision stays on the hidden boxes; this is what the cameras see."""
-    count = 48
-    thickness = 0.0016
-    z0 = -scene.cup_height / 2.0
-    z1 = scene.cup_height / 2.0
-    vertices: list[float] = []
-    # Outer bottom, outer top, inner bottom, inner top.
-    for radius, z in (
-        (scene.cup_bottom_radius, z0),
-        (scene.cup_top_radius, z1),
-        (max(0.004, scene.cup_bottom_radius - thickness), z0),
-        (max(0.004, scene.cup_top_radius - thickness), z1),
-    ):
-        for index in range(count):
-            angle = 2.0 * math.pi * index / count
-            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
-    faces: list[int] = []
-
-    def quad(a0: int, b0: int) -> None:
-        for index in range(count):
-            nxt = (index + 1) % count
-            a, b = a0 + index, a0 + nxt
-            c, d = b0 + index, b0 + nxt
-            faces.extend((a, d, b, a, c, d))
-
-    quad(0, count)  # outer wall
-    quad(3 * count, 2 * count)  # inner wall, facing in
-    quad(count, 3 * count)  # rim
-    return vertices, faces
-
-
 def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
+    """A hollow shell. One mesh would be replaced by its convex hull and the block could not fall in.
+
+    The boxes are the wall the block hits, and they are the wall the cameras see.
+    Their radii and height are the stereo hull on the scene, not a second shape.
+    """
     cup = spec.worldbody.add_body(name="cup", pos=list(scene.cup_pos))
     cup.add_freejoint(name="cup_free")
     bottom = cup.add_geom(
         name="cup_bottom",
         type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-        size=[scene.cup_bottom_radius, 0.0025, 0.0],
+        size=[min(scene.cup_bottom_radius, scene.cup_top_radius) - 0.0016, 0.0025, 0.0],
         pos=[0.0, 0.0, -scene.cup_height / 2.0 + 0.0025],
         mass=0.22,
         rgba=list(scene.cup_rgba),
     )
     bottom.friction = [1.4, 0.02, 0.001]
-    shell = spec.add_mesh()
-    shell.name = "cup_shell"
-    vertices, faces = _cup_shell(scene)
-    shell.uservert = vertices
-    shell.userface = faces
-    visible = cup.add_geom(
-        name="cup_shell",
-        type=mujoco.mjtGeom.mjGEOM_MESH,
-        meshname="cup_shell",
-        rgba=list(scene.cup_rgba),
-        mass=0.0,
-        contype=0,
-        conaffinity=0,
-    )
-    del visible
-    # Contact is a ring of boxes. They are not drawn. A convex mesh would fill the cup.
-    rings = 3
+    rings = 4
+    count = 48
     for ring in range(rings):
         t0 = ring / rings
         t1 = (ring + 1) / rings
         radius = scene.cup_bottom_radius + (scene.cup_top_radius - scene.cup_bottom_radius) * (t0 + t1) / 2.0
         center_z = -scene.cup_height / 2.0 + scene.cup_height * (t0 + t1) / 2.0
-        half_z = scene.cup_height / rings * 0.62
-        count = max(16, int(2.0 * math.pi * radius / 0.012))
+        half_z = scene.cup_height / rings * 0.5 + 0.0004
         for index in range(count):
             angle = 2.0 * math.pi * (index + 0.5) / count
             wall = cup.add_geom(
+                name=f"cup_wall_{ring}_{index}",
                 type=mujoco.mjtGeom.mjGEOM_BOX,
-                size=[0.0018, math.pi * radius / count * 1.05, half_z],
+                size=[0.0016, math.pi * radius / count * 1.02, half_z],
                 pos=[radius * math.cos(angle), radius * math.sin(angle), center_z],
                 quat=_quat_z(angle),
-                mass=0.0015,
-                rgba=[0.0, 0.0, 0.0, 0.0],
+                mass=0.0004,
+                rgba=list(scene.cup_rgba),
             )
             wall.friction = [0.35, 0.005, 0.0001]
 

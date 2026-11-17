@@ -8,7 +8,7 @@ The Menagerie FR3 flange matches `cartesian_position` to solver noise, so the ar
 
 **Table.** StereoSGBM on the rectified ext1 pair, unprojected with the factory intrinsics. A seeded RANSAC plane, then a refit. ext1’s height agrees with the fingertips. ext2’s cloud is centimeters off, so it is not used for geometry.
 
-**Block and cup.** The block’s xy is the pinch over the two steps where the measured gripper width first passes 0.5. Its half-width is the median stereo extent of the yellow blob, 15.9 mm, and it is kept under the empty-hand opening at the stall (finger gap 37.5 mm) so the pads can close on the faces. The cup’s xy is the pinch at its lowest point during the hold. The bottom radius is the stereo radius, 24.2 mm. The mouth is wide enough for the block’s corner at the pinch while the fingers are still shut. The rim is the lowest fingertip during that time. The pads reach 21.6 mm past the pinch, and the pad box itself is another 9.4 mm along that axis (`g_right_pad1`), so the rim sits one pad-depth below the fingertip. Both lengths are read off the gripper at the insertion pose.
+**Block and cup.** The block’s xy is the pinch over the two steps where the measured gripper width first passes 0.5. Its half-width is the median stereo extent of the yellow blob, 15.9 mm, and it is kept under the empty-hand opening at the stall (finger gap 37.5 mm) so the pads can close on the faces. The cup’s xy is the pinch at its lowest point during the hold. The stereo centroid of the cup is centimeters from that pinch, and the hand is what touches the cup, so the cloud is not used for the cup’s position. The height and both radii are the cloud. The rim is the mode of the blue points’ height, 81.3 mm. Each radius is a circle fit to that band: 27.8 mm at the base and 30.9 mm at the rim. A 95th-percentile rim is the sparse tail above the mode, and it put the wall through the pads. The wall the block falls into is this hull. One mesh would be replaced by its convex hull and would fill the cup, so the wall is a ring of boxes, and those boxes are what the cameras see.
 
 **Teal cube.** Nothing grasps it. Its ext1 stereo centroid is shifted by the same xy correction that takes the stereo block onto the pinch.
 
@@ -24,17 +24,19 @@ The Menagerie FR3 flange matches `cartesian_position` to solver noise, so the ar
 |---|---|
 | Joint RMSE | 0.0130 rad |
 | Flange RMSE | 1.26 cm |
-| Block to cup axis, final | 1.3 mm, and inside the cup |
-| Cup drift / tilt | ~0 / ~0 deg |
+| Block to cup axis, final | 9.9 mm, and inside the cup |
+| Cup drift / tilt | 1.2 mm / 1.0 deg |
 | Teal drift | 0 |
-| Block and cup, frame 0, ext1 | 1.1 px, 2.2 px |
-| Block and cup, frame 0, ext2 | 11.9 px, 9.2 px |
-| Block and cup, grasp, ext1 | 24.4 px, 3.9 px |
-| Block and cup, grasp, ext2 | 17.9 px, 7.7 px |
+| Block and cup, frame 0, ext1 | 1.1 px, 2.6 px |
+| Block and cup, frame 0, ext2 | 11.9 px, 8.1 px |
+| Block and cup, frame 0, wrist | 0.6 px, 0.6 px |
+| Block and cup, grasp, ext1 | 24.4 px, 2.6 px |
+| Block and cup, grasp, ext2 | 17.9 px, 7.2 px |
+| Block, grasp, wrist | 29.7 px |
 
-On ext1 at frame 0 the color overlap is 0.9919 for the block, 0.8529 for the cup, and 0.8039 for the cube. Unpainted lab pixels match the real frame (`background_match` 1.0). ext1’s teal *centroid* detector still locks onto the backdrop (559 px). The 3D cube projects to 35 px of the teal blob on ext2. An open gripper leaves the block on the table (z = −1.19 cm, the rest height). The nominal block peaks at 13.9 cm, so the gate is not “it ended in the volume” alone: it was lifted. Welding the block to the palm and opening the hand lifts it to z = 5.5 cm, and that run is rejected. A block twice as wide is still narrower than the 85 mm hand, and this run does lift it (peak z = 12.1 cm). It does not settle inside the cup, which is why that gate fails. It is not evidence that the fingers missed. A table 5 cm too high leaves the block 9.9 cm from the cup. The logged target, replayed raw, leaves it 11.9 cm away.
+On ext1 at frame 0 the color overlap is 0.9917 for the block, 0.8463 for the cup, and 0.8047 for the cube. Unpainted lab pixels match the real frame (`background_match` 1.0). ext1’s teal *centroid* detector still locks onto the backdrop (559 px). The 3D cube projects to 35 px of the teal blob on ext2. An open gripper leaves the block on the table (z = −1.19 cm, the rest height). The nominal block peaks at 13.9 cm, so the gate is not “it ended in the volume” alone: it was lifted. Welding the block to the palm and opening the hand lifts it to z = 5.1 cm, and that run is rejected. A block twice as wide is still narrower than the 85 mm hand, and this run does lift it (peak z = 12.1 cm). It ends 28.7 mm from the axis, outside the 27.8 mm base, which is why that gate fails. It was picked up. A table 5 cm too high leaves the block 9.0 cm from the cup. The logged target, replayed raw, leaves it 12.1 cm away.
 
-The side-by-side is real | sim for all three cameras and all 100 frames. The wrist camera uses the logged extrinsics. It used to draw the previous pose, because the camera position is published by the physics step and the wrist pose was written after that step. A close camera still makes the frustum cup and the CAD gripper larger than the real ones.
+The side-by-side is real | sim for all three cameras and all 100 frames. The wrist camera uses the logged extrinsics, and the pose is forwarded before the frame is drawn. At the grasp the cup is a few dozen pixels on the border of that frame and the strict blue mask is empty, so the grasp-frame wrist gate is the block. The cup on the wrist is gated at frame 0, where both objects land under a pixel.
 
 ## Determinism and verifiability
 
@@ -42,10 +44,10 @@ RANSAC is seeded. Two full replays match to 0 m on the block, cup, and cube. `ev
 
 ## Scaling
 
-On this CPU, calibration plus physics is 3.1 s. Rendering three 1280×720 views for 100 frames, with the plate, is the rest of a run and is about two minutes. A thousand episodes is under an hour of physics and on the order of a day of rendering on one machine, and each episode is independent.
+On this CPU, calibration plus physics is 3.2 s. Rendering three 1280×720 views for 100 frames, with the plate, is the rest of a run and is about two minutes. A thousand episodes is under an hour of physics and on the order of a day of rendering on one machine, and each episode is independent.
 
-What breaks first is contact, and the three bad scenes are that break: an early gripper close, a block the fingers cannot swallow, and a table the hand no longer meets. Extrinsics are next. The two fixed cameras already disagree, and only the arm made the touched objects consistent. A human looks when a gate fails, or when the object is transparent or a color the masks have never seen. The thing to build first is the verifier, which this repo runs, and then a fixed grid over block scale and rim clearance that accepts the first value whose gates pass.
+What breaks first is contact, and the three bad scenes are that break: an early gripper close, a block the fingers cannot swallow, and a table the hand no longer meets. Extrinsics are next. The two fixed cameras already disagree, and only the arm made the touched objects consistent. A human looks when a gate fails, or when the object is transparent or a color the masks have never seen. The thing to build first is the verifier, which this repo runs.
 
 ## Next
 
-The cameras see one frustum. Contact is still the hidden ring of boxes, because one convex mesh would fill the cup. A shell taken from the stereo hull, instead of that frustum, is the wrist-view upgrade. A static backdrop fused from depth would replace the real plate on scenes where the camera moves. Torque tracking, instead of stiff position actuators, is the physics step if the next episode is one the log has not already played.
+The cup the block falls into is the stereo hull. MuJoCo replaces one mesh with its convex hull, so that hull is a ring of convex boxes, and the cameras see those boxes. A static backdrop fused from depth would replace the real plate on scenes where the camera moves. Torque tracking, instead of stiff position actuators, is the physics step if the next episode is one the log has not already played. The flange during replay is 1.26 cm off the log, which is the limit of using that replay as a ruler.
