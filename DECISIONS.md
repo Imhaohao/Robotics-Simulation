@@ -97,3 +97,15 @@ The wrist claim does not reproduce as a bad extrinsic. An earlier pass of this l
 [Review the frustum cup scene](bc-ab4d785f-a399-5312-8d47-677874d5f52e) would not advance the frustum. The mouth was the pinch path plus the block’s corner, the height was the clearance under the fingers, the drawn cup was not the contact, and the wrist grasp was outside the gate. The condition they set: derive the height and both radii from the stereo hull, make that shell the contact, put the wrist grasp in the gate, and they advance if the block is still in the cup and the cup does not move.
 
 That is the scene above. The block is in the cup, 2.1 mm from the axis, after a lift to 13.9 cm. The cup moves 1.3 mm and does not tilt. The flange during the replay is 1.26 cm off the log. That error is why a centimeter at the wrist is a large pixel error, and it is not absorbed by moving the cup onto the stereo centroid.
+
+**A 90 degree yaw of the hand, with the wrist camera on the physics flange (2026-11-16, 5:42pm PT).** Not shipped. The goal pauses on the previous video.
+
+[Re-check the one gripper](bc-3f6fad7a-cc01-5f33-b21f-d97a063ec1a2) said the shipped wrist still shows two hands: the gray CAD sits above and to the right of a black copy of the real fingers, and those fingertips are not the ones around the block. The block is in the lagged fingers, so the camera has to ride that flange. The logged camera-to-flange offset, applied to the simulated flange, matches the logged camera when the arm is on the log (image difference about 0, camera position difference about 1e-9 m). At the grasp the physics flange is 2.6 cm and 2.7 degrees off the log.
+
+The Menagerie attach draws that gripper on the right of the frame, looking sideways. The real fingers enter from the bottom. A +90 degree yaw of the attach frame around the flange axis turns the CAD to that view: one hand, fingertips around the block at the grasp, the same hand open over the cup at the end. A cube on the pinch is still between the pads, and the lift still peaks at 0.139 m.
+
+It does not finish the drop inside the logged horizon. At the last step the block is on the rim, z 0.061 m and 9.6 mm off the axis. The gate wants the center below the rim, and 0.061 m is above it. Holding the last command for three more seconds, with the arm not driven to a new pose, drops the block to z 0.028 m and about 4 mm off the axis. The yaw-0 hand already in the video is inside at the last step (2.1 mm, z 0.016 m). Shipping the yaw would fail `block_ended_in_cup`.
+
+The table under that camera was a darkened photo tile, scaled to 0.28. The wrist mean stayed about (181, 169, 81), the same clipped yellow as the brighter tile. A flat color (0.42, 0.28, 0.12) is a brown field, not the wood in the real frame. Neither replaces the committed plate.
+
+`kinematics.py`, `replay.py`, `scene.py`, and `textures.py` are back to the commit that paints the leftover real fingers the gripper color. When this resumes, the 90 degree yaw stays, the drop has to finish inside the logged horizon without prescribing the arm joints, and only then is the wrist rendered again.
