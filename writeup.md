@@ -32,11 +32,11 @@ The Menagerie FR3 flange matches `cartesian_position` to solver noise, so the ar
 | Block and cup, frame 0, wrist | 0.6 px, 0.6 px |
 | Block and cup, grasp, ext1 | 24.4 px, 2.6 px |
 | Block and cup, grasp, ext2 | 17.9 px, 7.2 px |
-| Block, grasp, wrist | 29.7 px |
+| Block and cup, grasp, wrist | 29.7 px, 0.1 px |
 
 On ext1 at frame 0 the color overlap is 0.9917 for the block, 0.8463 for the cup, and 0.8047 for the cube. Unpainted lab pixels match the real frame (`background_match` 1.0). ext1’s teal *centroid* detector still locks onto the backdrop (559 px). The 3D cube projects to 35 px of the teal blob on ext2. An open gripper leaves the block on the table (z = −1.19 cm, the rest height). The nominal block peaks at 13.9 cm, so the gate is not “it ended in the volume” alone: it was lifted. Welding the block to the palm and opening the hand lifts it to z = 5.1 cm, and that run is rejected. A block twice as wide is still narrower than the 85 mm hand, and this run does lift it (peak z = 12.1 cm). It ends 28.7 mm from the axis, outside the 27.8 mm base, which is why that gate fails. It was picked up. A table 5 cm too high leaves the block 9.0 cm from the cup. The logged target, replayed raw, leaves it 12.1 cm away.
 
-The side-by-side is real | sim for all three cameras and all 100 frames. The wrist camera uses the logged extrinsics, and the pose is forwarded before the frame is drawn. At the grasp the cup is a few dozen pixels on the border of that frame and the strict blue mask is empty, so the grasp-frame wrist gate is the block. The cup on the wrist is gated at frame 0, where both objects land under a pixel.
+The side-by-side is real | sim for all three cameras and all 100 frames. The wrist camera uses the logged extrinsics, and the pose is forwarded before the frame is drawn. At the grasp the cup projection lands on the cup. That face is in shadow, hue 72 and saturation 35, so the fixed-camera mask is empty there. The distance in the gate is 0.1 px, to that face. The 54 px figure is the distance to a more saturated rim of the same cup, which the stricter mask was selecting.
 
 ## Determinism and verifiability
 

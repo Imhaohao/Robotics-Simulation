@@ -208,25 +208,32 @@ def _mask_distance(frame_bgr: np.ndarray, name: str, pixel: np.ndarray) -> float
     """Pixels from a projected point to the nearest real object pixel. None if the colour is absent.
 
     The strict mask is the one used at rest. In the gripper the block is darker, so a
-    slightly lower threshold is used when the strict mask is almost empty.
+    slightly lower threshold is used when the strict mask is almost empty. On the wrist
+    at the grasp the cup is a shadowed face at the border, hue about 72 and saturation
+    about 35, which neither of those masks contains. That third range is used only
+    when the first two are empty, so the fixed cameras keep their stricter mask.
     """
     hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
-    ranges = {
-        "yellow": ((18, 210, 160), (42, 255, 255)),
-        "blue": ((88, 80, 40), (115, 255, 255)),
+    candidates = {
+        "yellow": (
+            ((18, 210, 160), (42, 255, 255)),
+            ((18, 190, 100), (42, 255, 255)),
+        ),
+        "blue": (
+            ((88, 80, 40), (115, 255, 255)),
+            ((88, 60, 30), (120, 255, 255)),
+            ((70, 25, 50), (120, 255, 255)),
+        ),
     }
-    fallback = {
-        "yellow": ((18, 190, 100), (42, 255, 255)),
-        "blue": ((88, 60, 30), (120, 255, 255)),
-    }
-    low, high = ranges[name]
-    mask = cv2.inRange(hsv, low, high)
-    if int((mask > 0).sum()) < 20:
-        low, high = fallback[name]
-        mask = cv2.inRange(hsv, low, high)
-    points = np.column_stack(np.nonzero(mask))
-    if len(points) == 0:
+    mask = None
+    for low, high in candidates[name]:
+        trial = cv2.inRange(hsv, low, high)
+        if int((trial > 0).sum()) >= 20:
+            mask = trial
+            break
+    if mask is None:
         return None
+    points = np.column_stack(np.nonzero(mask))
     # nonzero is (row, col). pixel is (u, v) = (col, row).
     delta = points[:, ::-1] - pixel.reshape(1, 2)
     return float(np.min(np.linalg.norm(delta, axis=1)))

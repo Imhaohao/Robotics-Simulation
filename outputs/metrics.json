@@ -130,10 +130,11 @@
     "reproj_grasp_ext2_yellow_px": 17.94030776042597,
     "reproj_grasp_ext2_blue_px": 7.145505527037051,
     "reproj_grasp_wrist_yellow_px": 29.68222112418023,
+    "reproj_grasp_wrist_blue_px": 0.10099794488854455,
     "background_match": 1.0
   },
   "passed": true,
   "deterministic_calibration": true,
-  "simulate_s": 78.11786258700067,
+  "simulate_s": 3.200313859000744,
   "block_peak_z": 0.13874284481629318
 }

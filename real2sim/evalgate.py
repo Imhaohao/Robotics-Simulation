@@ -44,11 +44,7 @@ def _reproj_ok(numbers: dict) -> tuple[bool, list[str]]:
     missing = []
     for when in ("frame0", "grasp"):
         for camera in ("ext1", "ext2", "wrist"):
-            # At the grasp the cup is a sliver on the wrist border and the strict
-            # mask is empty. The grasped object is the block. The cup is scored
-            # on the wrist at frame 0, where the mask is the cup.
-            objects = ("yellow",) if when == "grasp" and camera == "wrist" else ("yellow", "blue")
-            for obj in objects:
+            for obj in ("yellow", "blue"):
                 key = f"reproj_{when}_{camera}_{obj}_px"
                 if key not in numbers or float(numbers[key]) >= REPROJ_PX:
                     missing.append(key)
