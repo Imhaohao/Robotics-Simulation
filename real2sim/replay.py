@@ -141,6 +141,7 @@ def rollout(
     gripper: str = "stall",
     real_frames: dict[str, list[np.ndarray]] | None = None,
     composite: bool = False,
+    video_steps: int | None = None,
 ) -> Rollout:
     data = mujoco.MjData(model)
     actuators = [
@@ -177,7 +178,7 @@ def rollout(
     flange_err = []
     yellow_path = np.zeros((episode.steps, 3), dtype=np.float64)
     cup_path = np.zeros((episode.steps, 3), dtype=np.float64)
-    video_steps = min(100, episode.steps)
+    video_steps = min(100 if video_steps is None else video_steps, episode.steps)
     foreground = _foreground_geoms(model) if render and composite else np.zeros(0, dtype=np.int32)
     background_match = 0.0
     for index in range(episode.steps):
@@ -197,6 +198,9 @@ def rollout(
         model.cam_pos[camera_ids["wrist"]] = wrist_t
         model.cam_quat[camera_ids["wrist"]] = wrist_q
         model.cam_fovy[camera_ids["wrist"]] = _fovy(episode.cameras["wrist"])
+        # cam_xpos is filled by the last forward. The wrist pose is written after
+        # that step, so the renderer would keep the previous frame's camera.
+        mujoco.mj_forward(model, data)
         for name in frames:
             renderer.update_scene(data, camera=name)
             rgb = renderer.render().copy()

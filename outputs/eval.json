@@ -24,8 +24,8 @@
       "geometry_from_measurement": 8,
       "visual": {
         "points": 12,
-        "yellow_iou": 0.9918777630369597,
-        "blue_iou": 0.8509706967130061,
+        "yellow_iou": 0.9919276692548585,
+        "blue_iou": 0.852862700368658,
         "background_match": 1.0
       },
       "total": 35
@@ -49,7 +49,7 @@
       "block_to_cup_m": 0.0012787674656197087,
       "cup_drift_m": 8.733238525609887e-08,
       "teal_drift_m": 0.0,
-      "simulate_s": 3.105942492000395
+      "simulate_s": 2.8316132130003098
     }
   },
   "reproj_missing_or_over": [],
@@ -71,43 +71,43 @@
     {
       "step": "nominal",
       "detail": "calibrate and replay",
-      "t": 1794874683.8762283
+      "t": 1794875497.827468
     },
     {
       "step": "repeat",
       "detail": "second run for determinism",
-      "t": 1794874687.0121436
+      "t": 1794875500.6852915
     },
     {
       "step": "open",
       "detail": "gripper held open",
-      "t": 1794874689.6479454
+      "t": 1794875503.1556485
     },
     {
       "step": "raw",
       "detail": "logged target gripper",
-      "t": 1794874692.040186
+      "t": 1794875505.5228775
     },
     {
       "step": "wide",
       "detail": "block twice as wide",
-      "t": 1794874694.4610388
+      "t": 1794875507.9482083
     },
     {
       "step": "table",
       "detail": "table 5 cm high",
-      "t": 1794874696.8694513
+      "t": 1794875510.3711014
     },
     {
       "step": "weld",
       "detail": "block welded to the gripper, hand open",
-      "t": 1794874699.37424
+      "t": 1794875512.80548
     }
   ],
   "rendered_numbers": {
-    "iou_ext1_yellow": 0.9918777630369597,
-    "iou_ext1_blue": 0.8509706967130061,
-    "iou_ext1_teal": 0.805344707101376,
+    "iou_ext1_yellow": 0.9919276692548585,
+    "iou_ext1_blue": 0.852862700368658,
+    "iou_ext1_teal": 0.8038810205112175,
     "background_match": 1.0,
     "block_to_cup_m": 0.0012787674656197087
   }

@@ -34,7 +34,7 @@ The Menagerie FR3 flange matches `cartesian_position` to solver noise, so the ar
 
 On ext1 at frame 0 the color overlap is 0.9919 for the block, 0.8529 for the cup, and 0.8039 for the cube. Unpainted lab pixels match the real frame (`background_match` 1.0). ext1’s teal *centroid* detector still locks onto the backdrop (559 px). The 3D cube projects to 35 px of the teal blob on ext2. An open gripper leaves the block on the table (z = −1.19 cm, the rest height). The nominal block peaks at 13.9 cm, so the gate is not “it ended in the volume” alone: it was lifted. Welding the block to the palm and opening the hand lifts it to z = 5.5 cm, and that run is rejected. A block twice as wide is still narrower than the 85 mm hand, and this run does lift it (peak z = 12.1 cm). It does not settle inside the cup, which is why that gate fails. It is not evidence that the fingers missed. A table 5 cm too high leaves the block 9.9 cm from the cup. The logged target, replayed raw, leaves it 11.9 cm away.
 
-The side-by-side is real | sim for all three cameras and all 100 frames. The wrist view is the least convincing: a close camera makes the cup’s ring geometry and any centimeter of pose error fill the frame.
+The side-by-side is real | sim for all three cameras and all 100 frames. The wrist camera uses the logged extrinsics. It used to draw the previous pose, because the camera position is published by the physics step and the wrist pose was written after that step. A close camera still makes the frustum cup and the CAD gripper larger than the real ones.
 
 ## Determinism and verifiability
 
