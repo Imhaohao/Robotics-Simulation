@@ -117,8 +117,8 @@
     "reproj_ext1_teal_px": 558.9434503094142,
     "reproj_ext2_teal_px": 35.477702993752665,
     "iou_ext1_yellow": 0.9917737917496704,
-    "iou_ext1_blue": 0.8461709841411298,
-    "iou_ext1_teal": 0.8040022127618636,
+    "iou_ext1_blue": 0.849796447451036,
+    "iou_ext1_teal": 0.8068162686100488,
     "reproj_frame0_ext1_yellow_px": 1.1022037658720252,
     "reproj_frame0_ext1_blue_px": 2.7062387185484593,
     "reproj_frame0_ext2_yellow_px": 11.863007439770076,
@@ -135,6 +135,6 @@
   },
   "passed": true,
   "deterministic_calibration": true,
-  "simulate_s": 65.90125365699987,
+  "simulate_s": 63.62716250700032,
   "block_peak_z": 0.1387430770658403
 }

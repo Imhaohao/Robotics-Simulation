@@ -101,12 +101,35 @@ def _object_mask(real_bgr: np.ndarray, table_only: bool) -> np.ndarray:
     return cv2.dilate(keep, np.ones((5, 5), np.uint8))
 
 
+def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
+    """Real gripper pixels in the wrist plate: dark red, touching the bottom of the frame."""
+    hsv = cv2.cvtColor(real_bgr, cv2.COLOR_BGR2HSV)
+    height = real_bgr.shape[0]
+    hue, sat, val = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    dark = ((val < 120) & ((hue <= 16) | (hue >= 160)) & (sat > 20)).astype(np.uint8) * 255
+    dark[: int(height * 0.40)] = 0
+    kernel = max(5, int(round(height * 0.025)))
+    if kernel % 2 == 0:
+        kernel += 1
+    dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, np.ones((kernel, kernel), np.uint8))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(dark)
+    keep = np.zeros_like(dark)
+    for index in range(1, count):
+        if int(stats[index, cv2.CC_STAT_AREA]) < max(200, height):
+            continue
+        rows = np.where(labels == index)[0]
+        if rows.size and int(rows.max()) > height - 4:
+            keep[labels == index] = 255
+    return cv2.dilate(keep, np.ones((3, 3), np.uint8))
+
+
 def _over_plate(
     rgb: np.ndarray,
     seg: np.ndarray,
     real_bgr: np.ndarray,
     foreground: np.ndarray,
     table_only: bool,
+    cover_hand: bool = False,
 ) -> tuple[np.ndarray, float]:
     """Robot and objects stay rendered. The lab behind them is the real frame.
 
@@ -125,6 +148,14 @@ def _over_plate(
         plate = cv2.cvtColor(cv2.inpaint(cv2.cvtColor(original, cv2.COLOR_RGB2BGR), holes, 5, cv2.INPAINT_TELEA), cv2.COLOR_BGR2RGB)
     plated = plate.copy()
     plated[mask] = rgb[mask]
+    if cover_hand:
+        # The real fingers stick out past the CAD. Painting them the gripper's color
+        # makes one silhouette. Inpainting them left the finger shape as a smear.
+        hand = _wrist_hand(cv2.cvtColor(original, cv2.COLOR_RGB2BGR)) > 0
+        uncovered = hand & ~mask
+        dark = mask & (rgb.mean(axis=2) < 90)
+        if np.any(uncovered) and np.any(dark):
+            plated[uncovered] = np.median(rgb[dark], axis=0).astype(np.uint8)
     # Match is measured on the lab, not on the pixels we inpainted or redrew.
     keep = ~mask & (holes == 0)
     if not np.any(keep):
@@ -142,6 +173,7 @@ def rollout(
     real_frames: dict[str, list[np.ndarray]] | None = None,
     composite: bool = False,
     video_steps: int | None = None,
+    draw_logged_arm: bool = False,
 ) -> Rollout:
     data = mujoco.MjData(model)
     actuators = [
@@ -200,6 +232,11 @@ def rollout(
         model.cam_fovy[camera_ids["wrist"]] = _fovy(episode.cameras["wrist"])
         # cam_xpos is filled by the last forward. The wrist pose is written after
         # that step, so the renderer would keep the previous frame's camera.
+        held = data.qpos.copy() if draw_logged_arm else None
+        if draw_logged_arm:
+            # The picture uses the logged arm. Physics keeps the lagged joints,
+            # which are what close on the block. Restored after the frame.
+            data.qpos[:7] = episode.joint_position[index]
         mujoco.mj_forward(model, data)
         shown = mujoco.MjvOption()
         shown.geomgroup[:] = 1
@@ -214,11 +251,19 @@ def rollout(
                 seg = renderer.render()
                 renderer.disable_segmentation_rendering()
                 rgb, match = _over_plate(
-                    rgb, seg, real_frames[name][index], foreground, table_only=(name != "wrist")
+                    rgb,
+                    seg,
+                    real_frames[name][index],
+                    foreground,
+                    table_only=(name != "wrist"),
+                    cover_hand=(name == "wrist"),
                 )
                 if name == "ext1" and index == 0:
                     background_match = match
             frames[name].append(rgb)
+        if held is not None:
+            data.qpos[:] = held
+            mujoco.mj_forward(model, data)
 
     yellow, _ = _body(model, data, "yellow")
     cup, cup_rot = _body(model, data, "cup")

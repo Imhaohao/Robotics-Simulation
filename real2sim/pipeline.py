@@ -278,6 +278,7 @@ def run(
         gripper=gripper,
         real_frames=real if render else None,
         composite=render,
+        draw_logged_arm=render,
     )
     report = evaluate(
         episode,
