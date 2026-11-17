@@ -201,12 +201,16 @@ def rollout(
         # cam_xpos is filled by the last forward. The wrist pose is written after
         # that step, so the renderer would keep the previous frame's camera.
         mujoco.mj_forward(model, data)
+        shown = mujoco.MjvOption()
+        shown.geomgroup[:] = 1
+        # Group 3 is the capsule wall. It collides. The skin is what the camera draws.
+        shown.geomgroup[3] = 0
         for name in frames:
-            renderer.update_scene(data, camera=name)
+            renderer.update_scene(data, camera=name, scene_option=shown)
             rgb = renderer.render().copy()
             if composite and real_frames is not None and index < len(real_frames[name]):
                 renderer.enable_segmentation_rendering()
-                renderer.update_scene(data, camera=name)
+                renderer.update_scene(data, camera=name, scene_option=shown)
                 seg = renderer.render()
                 renderer.disable_segmentation_rendering()
                 rgb, match = _over_plate(

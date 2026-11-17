@@ -32,12 +32,31 @@ class SceneSpec:
     texture_dir: str | None
 
 
+def _cup_skin(scene: SceneSpec) -> tuple[list[float], list[int]]:
+    """The outer wall only. An inner wall 1.6 mm in z-fights and reads as ribs."""
+    count = 128
+    z0 = -scene.cup_height / 2.0
+    z1 = scene.cup_height / 2.0
+    vertices: list[float] = []
+    for radius, z in ((scene.cup_bottom_radius, z0), (scene.cup_top_radius, z1)):
+        for index in range(count):
+            angle = 2.0 * math.pi * index / count
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
+    faces: list[int] = []
+    for index in range(count):
+        nxt = (index + 1) % count
+        a, b = index, nxt
+        c, d = count + index, count + nxt
+        faces.extend((a, d, b, a, c, d))
+    return vertices, faces
+
+
 def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
     """A hollow shell. One mesh would be replaced by its convex hull and the block could not fall in.
 
-    The capsules are the wall the block hits, and they are the wall the cameras see.
-    Their radii and height are the stereo hull on the scene, not a second shape.
-    Boxes at the same radii left corners the block could sit on.
+    The capsules are the wall the block hits. They are the stereo radii. A lit stack
+    of capsules reads as ribs, so the cameras see one smooth skin of those same radii.
+    The skin does not collide. Boxes at the same radii left corners the block could sit on.
     """
     cup = spec.worldbody.add_body(name="cup", pos=list(scene.cup_pos))
     cup.add_freejoint(name="cup_free")
@@ -66,6 +85,24 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
                 rgba=list(scene.cup_rgba),
             )
             wall.friction = [0.35, 0.005, 0.0001]
+            wall.group = 3
+    skin = spec.add_mesh()
+    skin.name = "cup_skin"
+    vertices, faces = _cup_skin(scene)
+    skin.uservert = vertices
+    skin.userface = faces
+    skin.smoothnormal = True
+    drawn = cup.add_geom(
+        name="cup_skin",
+        type=mujoco.mjtGeom.mjGEOM_MESH,
+        meshname="cup_skin",
+        rgba=list(scene.cup_rgba),
+        mass=0.0,
+        contype=0,
+        conaffinity=0,
+        group=0,
+    )
+    del drawn
 
 
 def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> mujoco.MjModel:

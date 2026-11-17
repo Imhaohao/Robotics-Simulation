@@ -24,8 +24,8 @@
       "geometry_from_measurement": 8,
       "visual": {
         "points": 12,
-        "yellow_iou": 0.99171972668028,
-        "blue_iou": 0.844677032286688,
+        "yellow_iou": 0.9917737917496704,
+        "blue_iou": 0.8461709841411298,
         "background_match": 1.0
       },
       "total": 35
@@ -105,9 +105,9 @@
     }
   ],
   "rendered_numbers": {
-    "iou_ext1_yellow": 0.99171972668028,
-    "iou_ext1_blue": 0.844677032286688,
-    "iou_ext1_teal": 0.8046660567246111,
+    "iou_ext1_yellow": 0.9917737917496704,
+    "iou_ext1_blue": 0.8461709841411298,
+    "iou_ext1_teal": 0.8040022127618636,
     "background_match": 1.0,
     "block_to_cup_m": 0.002142026194585246
   }
