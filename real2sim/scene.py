@@ -36,6 +36,38 @@ def _quat_z(angle: float) -> list[float]:
     return [math.cos(angle / 2.0), 0.0, 0.0, math.sin(angle / 2.0)]
 
 
+def _cup_shell(scene: SceneSpec) -> tuple[list[float], list[int]]:
+    """An open frustum. Collision stays on the hidden boxes; this is what the cameras see."""
+    count = 48
+    thickness = 0.0016
+    z0 = -scene.cup_height / 2.0
+    z1 = scene.cup_height / 2.0
+    vertices: list[float] = []
+    # Outer bottom, outer top, inner bottom, inner top.
+    for radius, z in (
+        (scene.cup_bottom_radius, z0),
+        (scene.cup_top_radius, z1),
+        (max(0.004, scene.cup_bottom_radius - thickness), z0),
+        (max(0.004, scene.cup_top_radius - thickness), z1),
+    ):
+        for index in range(count):
+            angle = 2.0 * math.pi * index / count
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
+    faces: list[int] = []
+
+    def quad(a0: int, b0: int) -> None:
+        for index in range(count):
+            nxt = (index + 1) % count
+            a, b = a0 + index, a0 + nxt
+            c, d = b0 + index, b0 + nxt
+            faces.extend((a, d, b, a, c, d))
+
+    quad(0, count)  # outer wall
+    quad(3 * count, 2 * count)  # inner wall, facing in
+    quad(count, 3 * count)  # rim
+    return vertices, faces
+
+
 def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
     cup = spec.worldbody.add_body(name="cup", pos=list(scene.cup_pos))
     cup.add_freejoint(name="cup_free")
@@ -48,6 +80,22 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
         rgba=list(scene.cup_rgba),
     )
     bottom.friction = [1.4, 0.02, 0.001]
+    shell = spec.add_mesh()
+    shell.name = "cup_shell"
+    vertices, faces = _cup_shell(scene)
+    shell.uservert = vertices
+    shell.userface = faces
+    visible = cup.add_geom(
+        name="cup_shell",
+        type=mujoco.mjtGeom.mjGEOM_MESH,
+        meshname="cup_shell",
+        rgba=list(scene.cup_rgba),
+        mass=0.0,
+        contype=0,
+        conaffinity=0,
+    )
+    del visible
+    # Contact is a ring of boxes. They are not drawn. A convex mesh would fill the cup.
     rings = 3
     for ring in range(rings):
         t0 = ring / rings
@@ -64,7 +112,7 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
                 pos=[radius * math.cos(angle), radius * math.sin(angle), center_z],
                 quat=_quat_z(angle),
                 mass=0.0015,
-                rgba=list(scene.cup_rgba),
+                rgba=[0.0, 0.0, 0.0, 0.0],
             )
             wall.friction = [0.35, 0.005, 0.0001]
 
