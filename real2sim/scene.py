@@ -69,7 +69,7 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
             wall.friction = [0.35, 0.005, 0.0001]
 
 
-def build_model(scene: SceneSpec, assets: Path) -> mujoco.MjModel:
+def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> mujoco.MjModel:
     spec = robot_spec(assets)
     spec.option.timestep = 0.001
     spec.visual.global_.offwidth = 1280
@@ -176,4 +176,12 @@ def build_model(scene: SceneSpec, assets: Path) -> mujoco.MjModel:
 
     for name in ("ext1", "ext2", "wrist"):
         spec.worldbody.add_camera(name=name, fovy=50, pos=[0.3, 0.0, 0.4])
+    if weld_block:
+        # A block glued to the gripper must fail the open-hand check.
+        weld = spec.add_equality()
+        weld.name = "block_weld"
+        weld.type = mujoco.mjtEq.mjEQ_WELD
+        weld.objtype = mujoco.mjtObj.mjOBJ_BODY
+        weld.name1 = "yellow"
+        weld.name2 = "g_base"
     return spec.compile()

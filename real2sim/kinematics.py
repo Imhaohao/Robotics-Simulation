@@ -70,6 +70,37 @@ def _box_half_along(model: mujoco.MjModel, data: mujoco.MjData, geom_id: int, di
     return float(sum(size[axis] * abs(rotation[:, axis] @ direction) for axis in range(3)))
 
 
+def fingertip_below_pinch(model: mujoco.MjModel, joints: np.ndarray, command: float) -> tuple[float, float]:
+    """Reach of the pads past the pinch, and the pad's half-depth along that axis.
+
+    Both come from the gripper geoms at this pose. The cup rim is the reach
+    plus the pad depth, so the face clears the rim when the hand slides off.
+    """
+    data = mujoco.MjData(model)
+    actuator = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "g_fingers_actuator")
+    site = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, PINCH_SITE)
+    data.qpos[:7] = joints
+    data.ctrl[:7] = joints
+    data.ctrl[actuator] = float(np.clip(command, 0.0, 1.0) * 255.0)
+    for _ in range(300):
+        mujoco.mj_step(model, data)
+    axis = data.site_xmat[site].reshape(3, 3)[:, 2]
+    origin = data.site_xpos[site]
+    furthest = 0.0
+    for geom_id in range(model.ngeom):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, geom_id) or ""
+        if not name.startswith("g_"):
+            continue
+        reach = float((data.geom_xpos[geom_id] - origin) @ axis) + float(model.geom_rbound[geom_id])
+        furthest = max(furthest, reach)
+    pad = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "g_right_pad1")
+    rotation = data.geom_xmat[pad].reshape(3, 3)
+    size = model.geom_size[pad]
+    # Half-depth of the pad along the pinch axis. The rim has to clear this face.
+    pad_depth = float(sum(size[axis_id] * abs(float(rotation[:, axis_id] @ axis)) for axis_id in range(3)))
+    return furthest, pad_depth
+
+
 def finger_inner_gap(model: mujoco.MjModel, joints: np.ndarray, command: float) -> float:
     """Distance between the inner pad faces at a normalized gripper command."""
     data = mujoco.MjData(model)

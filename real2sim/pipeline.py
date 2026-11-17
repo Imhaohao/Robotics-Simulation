@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import time
+from dataclasses import replace
 from pathlib import Path
 
 os.environ.setdefault("MUJOCO_GL", "egl")
@@ -16,12 +18,13 @@ import numpy as np
 from real2sim.episode import Episode, load_episode, read_video
 from real2sim.kinematics import (
     finger_inner_gap,
+    fingertip_below_pinch,
     grasp_release_indices,
     gripper_commands,
     robot_spec,
     site_positions,
 )
-from real2sim.metrics import evaluate
+from real2sim.metrics import evaluate, project
 from real2sim.replay import rollout
 from real2sim.scene import SceneSpec, build_model
 from real2sim.stereo import reconstruct
@@ -55,7 +58,7 @@ def _color_from_mask(frame_bgr: np.ndarray, name: str) -> np.ndarray | None:
     return None
 
 
-def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | None) -> SceneSpec:
+def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | None) -> tuple[SceneSpec, dict]:
     robot = robot_spec(assets).compile()
     pinch = site_positions(robot, episode.joint_position, "g_pinch")
     grasp, release = grasp_release_indices(episode.gripper_position)
@@ -74,11 +77,23 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
 
     stall = float(np.median(episode.gripper_position[episode.gripper_position > 0.50]))
     gap = finger_inner_gap(robot, episode.joint_position[grasp], stall)
-    half = float(np.clip(0.44 * gap, 0.012, 0.022))
-
     yellow = segments.get("yellow")
     blue = segments.get("blue")
     teal = segments.get("teal")
+    # Stereo extent of the yellow blob, kept smaller than the opening the fingers
+    # actually stalled at so the pads can close around the faces.
+    if yellow is not None:
+        half = float(np.median(yellow.size[:2]) / 2.0)
+        block_source = "stereo"
+    else:
+        half = float(0.5 * gap)
+        block_source = "finger_gap"
+    if half >= 0.5 * gap:
+        half = float(0.46 * gap)
+        block_source = "finger_gap"
+    block_clipped = half < 0.008 or half > 0.040
+    half = float(np.clip(half, 0.008, 0.040))
+
     left = stereo_frame[:, : stereo_frame.shape[1] // 2]
     sampled = {name: _color_from_mask(left, name) for name in ("yellow", "blue", "teal")}
     bias = block_xy - yellow.centroid[:2] if yellow is not None else np.zeros(2)
@@ -92,13 +107,22 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
         teal_rgba = _tuple4(sampled["teal"]) if sampled["teal"] is not None else (0.16, 0.62, 0.52, 1.0)
 
     stereo_radius = float(np.max(blue.size[:2]) / 2.0) if blue is not None else 0.04
-    bottom_r = float(np.clip(max(0.032, stereo_radius * 0.8), 0.03, 0.046))
-    release_offset = float(np.linalg.norm(pinch[release, :2] - cup_xy))
-    top_r = float(
-        np.clip(max(0.050, bottom_r + 0.016, stereo_radius + 0.012, release_offset + half + 0.01), 0.05, 0.07)
+    # The stereo radius passes through. The clip is only the range of a tabletop cup.
+    bottom_r = float(np.clip(stereo_radius, 0.015, 0.05))
+    opening = np.flatnonzero(episode.gripper_position[insert:] < 0.25)
+    last_hold = insert + int(opening[0]) if len(opening) else release
+    offsets = np.linalg.norm(pinch[insert : last_hold + 1, :2] - cup_xy, axis=1)
+    # The mouth has to contain the block's corner, not only its center.
+    corner = float(half * np.sqrt(2.0))
+    top_r = float(np.clip(max(bottom_r, float(offsets.max()) + corner, stereo_radius), 0.02, 0.08))
+    protrusion, pad_depth = fingertip_below_pinch(
+        robot, episode.joint_position[insert], float(episode.gripper_position[insert])
     )
-    # Keep the rim below the fingertip at insertion so the departing hand clears it.
-    height = float(np.clip(float(pinch[insert, 2]) - table_z - 0.032, 0.055, 0.075))
+    near = np.linalg.norm(pinch[insert:, :2] - cup_xy, axis=1) < (top_r + 0.04)
+    lowest_pinch = float(np.min(pinch[insert:, 2][near])) if np.any(near) else float(pinch[insert, 2])
+    # Rim is the fingertip, then one measured pad-depth lower so the face does not catch it.
+    rim_z = lowest_pinch - protrusion - pad_depth
+    height = float(np.clip(rim_z - table_z, 0.04, 0.10))
 
     xs = [0.0, float(block_xy[0]), float(cup_xy[0]), float(teal_xy[0])]
     ys = [0.0, float(block_xy[1]), float(cup_xy[1]), float(teal_xy[1])]
@@ -108,7 +132,18 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
     x0, x1 = min(xs) - 0.28, max(xs) + 0.28
     y0, y1 = min(ys) - 0.28, max(ys) + 0.28
     wall = median_rgba(left, sat_max=40, value_min=40)
-    return SceneSpec(
+    provenance = {
+        "finger_gap_m": gap,
+        "block_half_m": half,
+        "block_source": block_source,
+        "block_width_clipped": block_clipped,
+        "stereo_cup_radius_m": stereo_radius,
+        "fingertip_protrusion_m": protrusion,
+        "pad_depth_m": pad_depth,
+        "rim_clearance_m": float(lowest_pinch - rim_z),
+        "release_offset_m": float(offsets.max()) if len(offsets) else 0.0,
+    }
+    scene = SceneSpec(
         table_z=table_z,
         table_center=((x0 + x1) / 2.0, (y0 + y1) / 2.0),
         table_half=((x1 - x0) / 2.0, (y1 - y0) / 2.0),
@@ -126,6 +161,7 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
         wall_rgba=_tuple4(wall),
         texture_dir=str(texture_dir) if texture_dir else None,
     )
+    return scene, provenance
 
 
 def _write_video(path: Path, real: dict[str, list[np.ndarray]], sim: dict[str, list[np.ndarray]], fps: float) -> None:
@@ -149,30 +185,92 @@ def _scene_dict(scene: SceneSpec) -> dict:
     return {key: (list(value) if isinstance(value, tuple) else value) for key, value in raw.items()}
 
 
-def run(data: Path, assets: Path, out: Path, render: bool = True) -> dict:
+def _perturb(scene: SceneSpec, block_scale: float, table_lift: float) -> SceneSpec:
+    if table_lift:
+        scene = replace(
+            scene,
+            table_z=scene.table_z + table_lift,
+            block_pos=(scene.block_pos[0], scene.block_pos[1], scene.block_pos[2] + table_lift),
+            cup_pos=(scene.cup_pos[0], scene.cup_pos[1], scene.cup_pos[2] + table_lift),
+            teal_pos=(scene.teal_pos[0], scene.teal_pos[1], scene.teal_pos[2] + table_lift),
+        )
+    if block_scale != 1.0:
+        half = scene.block_half * block_scale
+        scene = replace(
+            scene,
+            block_half=half,
+            block_pos=(scene.block_pos[0], scene.block_pos[1], scene.table_z + half),
+        )
+    return scene
+
+
+def _mask_distance(frame_bgr: np.ndarray, name: str, pixel: np.ndarray) -> float | None:
+    """Pixels from a projected point to the nearest real object pixel. None if the colour is absent.
+
+    The strict mask is the one used at rest. In the gripper the block is darker, so a
+    slightly lower threshold is used when the strict mask is almost empty.
+    """
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+    ranges = {
+        "yellow": ((18, 210, 160), (42, 255, 255)),
+        "blue": ((88, 80, 40), (115, 255, 255)),
+    }
+    fallback = {
+        "yellow": ((18, 190, 100), (42, 255, 255)),
+        "blue": ((88, 60, 30), (120, 255, 255)),
+    }
+    low, high = ranges[name]
+    mask = cv2.inRange(hsv, low, high)
+    if int((mask > 0).sum()) < 20:
+        low, high = fallback[name]
+        mask = cv2.inRange(hsv, low, high)
+    points = np.column_stack(np.nonzero(mask))
+    if len(points) == 0:
+        return None
+    # nonzero is (row, col). pixel is (u, v) = (col, row).
+    delta = points[:, ::-1] - pixel.reshape(1, 2)
+    return float(np.min(np.linalg.norm(delta, axis=1)))
+
+
+def run(
+    data: Path,
+    assets: Path,
+    out: Path,
+    render: bool = True,
+    gripper: str = "stall",
+    block_scale: float = 1.0,
+    table_lift: float = 0.0,
+    weld_block: bool = False,
+    write: bool = True,
+) -> dict:
     data = Path(data).resolve()
     assets = Path(assets).resolve()
     out = Path(out).resolve()
     import warnings
 
     warnings.filterwarnings("ignore", message="Attach conflict")
+    started = time.perf_counter()
     episode = load_episode(data)
     # Frame i lines up with trajectory step i. Stereo is left|right of the same instant.
     stereo = read_video(episode.cameras["ext1"].stereo_video)[0]
     real = {name: read_video(camera.video) for name, camera in episode.cameras.items()}
     texture_dir = out / "textures"
     write_textures(stereo[:, : stereo.shape[1] // 2], texture_dir)
-    scene = calibrate(episode, assets, stereo, texture_dir if render else texture_dir)
+    scene, provenance = calibrate(episode, assets, stereo, texture_dir)
     # A second calibration must reproduce the scene. Stereo matching is deterministic.
-    again = calibrate(episode, assets, stereo, texture_dir)
+    again, _ = calibrate(episode, assets, stereo, texture_dir)
     if again.block_pos != scene.block_pos or again.cup_pos != scene.cup_pos:
         raise RuntimeError("calibration changed between two runs")
-    model = build_model(scene, assets)
+    scene = _perturb(scene, block_scale, table_lift)
+    model = build_model(scene, assets, weld_block=weld_block)
     result = rollout(
         model,
         episode,
         render=render,
         render_size=(720, 1280) if render else (360, 640),
+        gripper=gripper,
+        real_frames=real if render else None,
+        composite=render,
     )
     report = evaluate(
         episode,
@@ -187,19 +285,58 @@ def run(data: Path, assets: Path, out: Path, render: bool = True) -> dict:
         {name: frames[0] for name, frames in real.items()},
         {name: (frames[0] if frames else np.zeros((360, 640, 3), dtype=np.uint8)) for name, frames in result.frames.items()},
     )
-    out.mkdir(parents=True, exist_ok=True)
+    grasp_index, _ = grasp_release_indices(episode.gripper_position)
+    for when, index in (("frame0", 0), ("grasp", int(grasp_index))):
+        for camera_name in ("ext1", "ext2"):
+            camera = episode.cameras[camera_name]
+            for label, point in (
+                ("yellow", result.yellow_path[index]),
+                ("blue", result.cup_path[index]),
+            ):
+                predicted = project(camera, point)
+                distance = _mask_distance(real[camera_name][min(index, len(real[camera_name]) - 1)], label, predicted)
+                if distance is not None:
+                    report.numbers[f"reproj_{when}_{camera_name}_{label}_px"] = distance
+    if render:
+        report.numbers["background_match"] = result.background_match
+    simulate_s = time.perf_counter() - started
+    import mujoco
+
+    free = []
+    for name in ("yellow_free", "cup_free", "teal_free"):
+        joint = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        free.append(int(model.jnt_type[joint]) == int(mujoco.mjtJoint.mjJNT_FREE))
     payload = {
         "task": episode.task,
         "scene": _scene_dict(scene),
-        "gripper_command": "measured width, with a close bias after the fingers stall",
+        "provenance": provenance,
+        "gripper": gripper,
+        "block_scale": block_scale,
+        "table_lift": table_lift,
+        "weld_block": weld_block,
+        "free_bodies": all(free),
+        "bodies": {
+            "yellow": result.yellow.tolist(),
+            "cup": result.cup.tolist(),
+            "teal": result.teal.tolist(),
+        },
+        "gripper_command": {
+            "stall": "measured width, with a close bias after the fingers stall",
+            "raw_target": "logged target gripper, including the early close",
+            "open": "gripper held open",
+        }[gripper],
         "checks": report.checks,
         "numbers": report.numbers,
         "passed": report.passed,
         "deterministic_calibration": True,
+        "simulate_s": simulate_s,
+        "block_peak_z": float(np.max(result.yellow_path[:, 2])),
     }
-    (out / "scene.json").write_text(json.dumps(payload["scene"], indent=2))
-    (out / "metrics.json").write_text(json.dumps(payload, indent=2))
-    if render:
+    if write:
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "scene.json").write_text(json.dumps(payload["scene"], indent=2))
+        (out / "metrics.json").write_text(json.dumps(payload, indent=2))
+    if render and write:
         fps = float(1.0 / np.median(episode.dt))
         _write_video(out / "side_by_side.mp4", real, result.frames, fps)
         stills = out / "stills"

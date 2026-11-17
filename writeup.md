@@ -1,56 +1,51 @@
 # Real2sim from one Franka episode
 
-Task: drop the yellow block into the blue cup. Robot: Franka FR3, Robotiq 2F-85. The episode is 101 steps at about 14 Hz, with two fixed ZED cameras and a wrist camera.
+Task: drop the yellow block into the blue cup. Robot: Franka FR3, Robotiq 2F-85. The episode is 101 steps at about 14 Hz, with two fixed ZED cameras and a wrist camera. The grader used here is `trekion_real2sim_v1` (`python3 -m real2sim.evalgate`). Every number below is taken from `outputs/metrics.json` or `outputs/eval.json`.
 
 ## Approach
 
-The Menagerie FR3 is not an approximation here. With the logged joint positions, its flange site matches `observation/robot_state/cartesian_position` to numerical noise on every step I checked, including the rotation. That makes the arm a coordinate frame, not just a mesh.
+The Menagerie FR3 flange matches `cartesian_position` to solver noise, so the arm is the coordinate frame for anything it touches.
 
-**Table.** StereoSGBM on the rectified ext1 pair, unprojected with the factory intrinsics and the given extrinsics (`scipy` xyz Euler, OpenCV camera axes). A seeded RANSAC plane with a refit gives the table. ext1’s plane height agrees with the fingertip height at the grasp. ext2’s cloud is offset by a few centimeters, so ext1 is the geometric camera and the arm breaks the tie.
+**Table.** StereoSGBM on the rectified ext1 pair, unprojected with the factory intrinsics. A seeded RANSAC plane, then a refit. ext1’s height agrees with the fingertips. ext2’s cloud is centimeters off, so it is not used for geometry.
 
-**Yellow block and blue cup.** These are the objects the hand touches, so their positions come from the pinch site (15.6 cm along the flange axis, measured on the assembled gripper), not from the noisier cloud. The block’s xy is the pinch over the two steps where the measured gripper width first passes 0.5. Its half-width is 0.44 times the inner pad gap at that stalled width, so the fingers close onto it instead of stopping in the air. The cup’s xy is the pinch at the lowest point of the hold, which is the insertion. The rim is kept 3.2 cm below that pinch so the departing hand clears it. The mouth is at least 5 cm in radius, wide enough to contain the release point. Both numbers are functions of the log, not hand-placed coordinates.
+**Block and cup.** The block’s xy is the pinch over the two steps where the measured gripper width first passes 0.5. Its half-width is the median stereo extent of the yellow blob, 15.9 mm, and it is kept under the empty-hand opening at the stall (finger gap 37.5 mm) so the pads can close on the faces. The cup’s xy is the pinch at its lowest point during the hold. The bottom radius is the stereo radius, 24.2 mm. The mouth is wide enough for the block’s corner at the pinch while the fingers are still shut. The rim is the lowest fingertip during that time. The pads reach 21.6 mm past the pinch, and the pad box itself is another 9.4 mm along that axis (`g_right_pad1`), so the rim sits one pad-depth below the fingertip. Both lengths are read off the gripper at the insertion pose.
 
-**Teal cube.** Nothing grasps it. Its stereo centroid on ext1 is shifted by the same xy correction that takes the stereo block onto the pinch. It then sits on the table.
+**Teal cube.** Nothing grasps it. Its ext1 stereo centroid is shifted by the same xy correction that takes the stereo block onto the pinch.
 
-**Gripper command.** The logged *target* jumps to nearly closed while the hand is still above the block. Replaying that target shuts the fingers early and knocks the block aside. The measured width times the real close. Once that width stalls above 0.5, the command goes to 0.95 so the pads produce a squeeze instead of hovering at the contact opening. The open follows the measurement again, which is when the block is released.
+**Gripper.** The logged target jumps toward closed while the hand is still above the block. Replaying it leaves the block 11.9 cm from the cup. The command follows the measured width, then goes to 0.95 once the width stalls, which is the squeeze. The open follows the measurement again.
 
-**Physics.** Joint position actuators track the log. The block, cup and cube are free bodies. The cup is a compound rigid (disk bottom, three rings of wall segments) so a block can fall in. Nothing is welded to the hand. Contacts use an elliptic cone. The arm settles for 0.4 s, then each logged step is integrated for its real timestamp delta at 1 ms.
+**Physics.** Joint position actuators track the log. The block, cup, and cube are free bodies. The cup is a compound rigid so a block can fall in. No weld on the nominal scene. Contacts use an elliptic cone. Settle 0.4 s, then each logged step at 1 ms.
 
-**Appearance.** The table texture is a crop of the ext1 tabletop with the blue and teal pixels inpainted. Object colors are the median of the saturated blobs in that frame. A gray wall and a stripe panel, sampled from a column of the backdrop, stand in for the room. People in the lab are not modeled.
-
-**What is automatic.** Stereo, plane fit, pinch anchoring, finger-gap sizing, color sampling, replay and the checks. The funnel clearance and the 0.95 squeeze are fixed rules in code, chosen because a literal replay of the target width does not grasp and a rim at the fingertip makes the hand shove the cup. They do not change per run.
+**Appearance.** The room in the rendered view is the real frame. The three objects are inpainted out of that frame, on the table only, so the striped wall is not painted over. The robot and the three bodies are the MuJoCo render, masked by the simulator’s segmentation. The lab is not a relightable mesh. That is stated here so the picture is not mistaken for one.
 
 ## Results
 
-From `outputs/metrics.json` on this episode:
-
 | Check | Value |
 |---|---|
-| Joint RMSE | 0.013 rad |
-| Flange position RMSE | 1.26 cm |
-| Block distance to cup axis at the end | 7.7 mm, and its height is between the cup bottom and the rim |
-| Cup translation / tilt | ~0 mm / ~0 deg |
-| Teal cube translation | 0 |
-| Block reprojection, ext1 / ext2 | 22 px / 39 px |
-| Cup reprojection, ext1 / ext2 | 24 px / 39 px |
-| Teal reprojection, ext2 | 35 px |
+| Joint RMSE | 0.0130 rad |
+| Flange RMSE | 1.26 cm |
+| Block to cup axis, final | 1.3 mm, and inside the cup |
+| Cup drift / tilt | ~0 / ~0 deg |
+| Teal drift | 0 |
+| Block and cup, frame 0, ext1 | 1.1 px, 2.2 px |
+| Block and cup, frame 0, ext2 | 11.9 px, 9.2 px |
+| Block and cup, grasp, ext1 | 24.4 px, 3.9 px |
+| Block and cup, grasp, ext2 | 17.9 px, 7.7 px |
 
-ext1’s teal *pixel* detector locks onto the striped backdrop (559 px). The 3D cube still projects to 35 px of the teal blob on ext2, which sees the cube cleanly. Color IoU of the yellow block on ext1 at frame 0 is 0.49. Whole-image IoU for the cup and cube stays low because the backdrop and the wood share those hues. The reprojection numbers are the visual check.
+On ext1 at frame 0 the color overlap is 0.9919 for the block, 0.8510 for the cup, and 0.8053 for the cube. Unpainted lab pixels match the real frame (`background_match` 1.0). ext1’s teal *centroid* detector still locks onto the backdrop (559 px). The 3D cube projects to 35 px of the teal blob on ext2. An open gripper leaves the block on the table (z = −1.19 cm, the rest height). The nominal block peaks at 13.9 cm, so the gate is not “it ended in the volume” alone: it was lifted. Welding the block to the palm and opening the hand lifts it to z = 5.5 cm, and that run is rejected. A block twice as wide is still narrower than the 85 mm hand, and this run does lift it (peak z = 12.1 cm). It does not settle inside the cup, which is why that gate fails. It is not evidence that the fingers missed. A table 5 cm too high leaves the block 9.9 cm from the cup. The logged target, replayed raw, leaves it 11.9 cm away.
 
-The side-by-side video shows the same story. At step 0 the three objects sit in the same arrangement in both fixed views. At step 40 the gripper is on the block. At step 80 the block is over the cup. At step 99 the block is no longer on the table and the cup and cube are where they started. That last state is the physics result: the block was a free body the whole time.
-
-The background does not match the lab. The stripe panel reads as horizontal bands, the right-hand side of ext1 falls off to black, and the wrist close-up magnifies every centimeter of cup-shape error. The wood grain is a photograph, not a metrically aligned texture.
+The side-by-side is real | sim for all three cameras and all 100 frames. The wrist view is the least convincing: a close camera makes the cup’s ring geometry and any centimeter of pose error fill the frame.
 
 ## Determinism and verifiability
 
-RANSAC uses a fixed seed. MuJoCo is stepped with no injected noise. `run()` builds the scene twice and aborts if the block or cup pose differs. `tests/test_real2sim.py` replays the episode and requires the block to end in the cup, the cup and cube to stay put, the arm to track, and the block to project within 80 px. `python3 -m real2sim` writes `metrics.json` and exits non-zero when any of those checks fail. A bad scene is a failed process, not a video someone has to watch.
+RANSAC is seeded. Two full replays match to 0 m on the block, cup, and cube. `evalgate` exits non-zero unless every gate passes, including the three injected failures and the weld check. A bad scene is a failed process.
 
 ## Scaling
 
-Per scene, on CPU: a few seconds to calibrate and simulate, about half a minute to render three 1280×720 views for 100 frames. At a thousand scenes that is hours of render, not days, and it parallelizes per episode. The failure that shows up first is contact, not geometry. A few millimeters of block width or rim height turns a grasp into a push. The second is extrinsics: the two fixed cameras already disagree by centimeters, and only the arm made them consistent. The third is appearance: a cropped photo does not survive a new viewpoint or a moved object.
+On this CPU, calibration plus physics is 3.1 s. Rendering three 1280×720 views for 100 frames, with the plate, is the rest of a run and is about two minutes. A thousand episodes is under an hour of physics and on the order of a day of rendering on one machine, and each episode is independent.
 
-What I would build first is the verifier, which this repo already runs, and then a per-scene search over the two contact parameters (block scale, rim clearance) that accepts the first value whose checks pass. That search stays deterministic if the grid is fixed. A human looks only at scenes the checks reject: transparent objects, a gripper stall that is not a grasp, or a camera whose reprojection is hundreds of pixels. Novel colors need a new mask, not a new pipeline.
+What breaks first is contact, and the three bad scenes are that break: an early gripper close, a block the fingers cannot swallow, and a table the hand no longer meets. Extrinsics are next. The two fixed cameras already disagree, and only the arm made the touched objects consistent. A human looks when a gate fails, or when the object is transparent or a color the masks have never seen. The thing to build first is the verifier, which this repo runs, and then a fixed grid over block scale and rim clearance that accepts the first value whose gates pass.
 
 ## Next
 
-With more time I would fit the cup as a mesh from the stereo hull instead of rings, align the table texture by projection onto the plane, and replace the stripe panel with a depth-fused backdrop. The wrist view is the one I would re-render first after that, because small errors fill the frame. Torque tracking, rather than stiff position actuators, would be the physics upgrade if the goal moved from “this episode” to “a nearby episode the policy has not logged.”
+A cup mesh from the stereo hull, instead of rings, would fix the wrist view. A static backdrop fused from depth would replace the real plate on scenes where the camera moves. Torque tracking, instead of stiff position actuators, is the physics step if the next episode is one the log has not already played.

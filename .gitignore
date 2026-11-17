@@ -6,3 +6,4 @@ MUJOCO_LOG.TXT
 outputs/textures/
 outputs/debug/
 outputs/test/
+outputs/probe/

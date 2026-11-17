@@ -13,9 +13,9 @@
     "block_pos": [
       0.5889733570856498,
       0.10988394539666484,
-      -0.011241752647528993
+      -0.01183671957263642
     ],
-    "block_half": 0.01648754072870257,
+    "block_half": 0.015892573803595142,
     "block_rgba": [
       0.7568627450980392,
       0.611764705882353,
@@ -25,11 +25,11 @@
     "cup_pos": [
       0.5789381091628201,
       -0.05240723808202704,
-      0.003710354745345562
+      0.004121245052670426
     ],
-    "cup_height": 0.06287929624315425,
-    "cup_bottom_radius": 0.032,
-    "cup_top_radius": 0.05,
+    "cup_height": 0.06370107685780398,
+    "cup_bottom_radius": 0.024156367284291914,
+    "cup_top_radius": 0.039939810117653254,
     "cup_rgba": [
       0.1843137254901961,
       0.3803921568627451,
@@ -56,6 +56,39 @@
     ],
     "texture_dir": "/workspace/outputs/textures"
   },
+  "provenance": {
+    "finger_gap_m": 0.037471683474324016,
+    "block_half_m": 0.015892573803595142,
+    "block_source": "stereo",
+    "block_width_clipped": false,
+    "stereo_cup_radius_m": 0.024156367284291914,
+    "fingertip_protrusion_m": 0.021558495081087398,
+    "pad_depth_m": 0.009443296959522191,
+    "rim_clearance_m": 0.031001792040609585,
+    "release_offset_m": 0.017464316703593635
+  },
+  "gripper": "stall",
+  "block_scale": 1.0,
+  "table_lift": 0.0,
+  "weld_block": false,
+  "free_bodies": true,
+  "bodies": {
+    "yellow": [
+      0.578532867697739,
+      -0.05119432739687218,
+      0.00379748971216168
+    ],
+    "cup": [
+      0.5789380252552248,
+      -0.05240721386507094,
+      0.0066616508403430546
+    ],
+    "teal": [
+      0.42010598259253024,
+      0.21267454748083336,
+      -0.014899448559652922
+    ]
+  },
   "gripper_command": "measured width, with a close bias after the fingers stall",
   "checks": {
     "arm_tracks_log": true,
@@ -68,23 +101,34 @@
     "teal_projects_on_ext2": true
   },
   "numbers": {
-    "joint_rmse_rad": 0.013024661631839666,
-    "flange_rmse_m": 0.01261012407635414,
-    "block_to_cup_m": 0.007701287885676979,
-    "block_z_m": -0.0001538274241440171,
+    "joint_rmse_rad": 0.013023124997159923,
+    "flange_rmse_m": 0.012611114161281864,
+    "block_to_cup_m": 0.0012787674656197087,
+    "block_z_m": 0.00379748971216168,
     "teal_drift_m": 0.0,
-    "cup_drift_m": 5.160332931562467e-07,
-    "cup_tilt_deg": 0.0004696469065344016,
-    "reproj_ext1_yellow_px": 22.061422172879755,
-    "reproj_ext2_yellow_px": 38.72038634463722,
-    "reproj_ext1_blue_px": 23.89820349454878,
-    "reproj_ext2_blue_px": 38.850690072850206,
+    "cup_drift_m": 8.733238525609887e-08,
+    "cup_tilt_deg": 0.00015705722593028717,
+    "reproj_ext1_yellow_px": 21.713756554187622,
+    "reproj_ext2_yellow_px": 38.38100727418273,
+    "reproj_ext1_blue_px": 23.845248263191383,
+    "reproj_ext2_blue_px": 38.92821675867095,
     "reproj_ext1_teal_px": 558.9434503094142,
     "reproj_ext2_teal_px": 35.477702993752665,
-    "iou_ext1_yellow": 0.4898635399911501,
-    "iou_ext1_blue": 0.016140535677057616,
-    "iou_ext1_teal": 0.00021724063020472342
+    "iou_ext1_yellow": 0.9918777630369597,
+    "iou_ext1_blue": 0.8509706967130061,
+    "iou_ext1_teal": 0.805344707101376,
+    "reproj_frame0_ext1_yellow_px": 1.1022037658720252,
+    "reproj_frame0_ext1_blue_px": 2.1423044488908345,
+    "reproj_frame0_ext2_yellow_px": 11.863007439770076,
+    "reproj_frame0_ext2_blue_px": 9.148634294851753,
+    "reproj_grasp_ext1_yellow_px": 24.441981015694466,
+    "reproj_grasp_ext1_blue_px": 4.135366218106413,
+    "reproj_grasp_ext2_yellow_px": 17.940307725858165,
+    "reproj_grasp_ext2_blue_px": 7.814559197446142,
+    "background_match": 1.0
   },
   "passed": true,
-  "deterministic_calibration": true
+  "deterministic_calibration": true,
+  "simulate_s": 73.87813930900029,
+  "block_peak_z": 0.13874295180003207
 }

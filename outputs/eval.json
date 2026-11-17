@@ -1,0 +1,114 @@
+{
+  "eval": "trekion_real2sim_v1",
+  "status": "passed",
+  "passed": true,
+  "pass_score": 85,
+  "gates": {
+    "free_bodies": true,
+    "open_leaves_block_on_table": true,
+    "welded_block_is_rejected": true,
+    "block_in_cup": true,
+    "block_was_lifted": true,
+    "cup_stable": true,
+    "teal_stayed": true,
+    "arm_tracks": true,
+    "two_runs_match": true,
+    "raw_target_fails": true,
+    "wide_block_fails": true,
+    "high_table_fails": true,
+    "reprojection": true
+  },
+  "score": {
+    "realism": {
+      "outcome_and_tracking": 15,
+      "geometry_from_measurement": 8,
+      "visual": {
+        "points": 12,
+        "yellow_iou": 0.9918777630369597,
+        "blue_iou": 0.8509706967130061,
+        "background_match": 1.0
+      },
+      "total": 35
+    },
+    "pipeline": {
+      "one_command": 10,
+      "double_run": 10,
+      "bad_scenes": 15,
+      "total": 35
+    },
+    "scaling": {
+      "measured_time": 10,
+      "demonstrated_failures": 10,
+      "what_stays_human": 8,
+      "total": 28
+    },
+    "total": 98,
+    "numbers_used": {
+      "joint_rmse_rad": 0.013023124997159923,
+      "flange_rmse_m": 0.012611114161281864,
+      "block_to_cup_m": 0.0012787674656197087,
+      "cup_drift_m": 8.733238525609887e-08,
+      "teal_drift_m": 0.0,
+      "simulate_s": 3.105942492000395
+    }
+  },
+  "reproj_missing_or_over": [],
+  "cases": {
+    "nominal_block_to_cup_m": 0.0012787674656197087,
+    "open_yellow_z": -0.01188209954416194,
+    "raw_in_cup": false,
+    "raw_block_to_cup_m": 0.11893436994425467,
+    "wide_in_cup": false,
+    "wide_block_to_cup_m": 0.0018585755448002207,
+    "wide_block_peak_z": 0.12091641877691787,
+    "nominal_peak_z": 0.13874295180003207,
+    "high_in_cup": false,
+    "high_block_to_cup_m": 0.09948023464564472,
+    "welded_yellow_z": 0.05503803398291914,
+    "pose_delta_m": 0.0
+  },
+  "log": [
+    {
+      "step": "nominal",
+      "detail": "calibrate and replay",
+      "t": 1794874683.8762283
+    },
+    {
+      "step": "repeat",
+      "detail": "second run for determinism",
+      "t": 1794874687.0121436
+    },
+    {
+      "step": "open",
+      "detail": "gripper held open",
+      "t": 1794874689.6479454
+    },
+    {
+      "step": "raw",
+      "detail": "logged target gripper",
+      "t": 1794874692.040186
+    },
+    {
+      "step": "wide",
+      "detail": "block twice as wide",
+      "t": 1794874694.4610388
+    },
+    {
+      "step": "table",
+      "detail": "table 5 cm high",
+      "t": 1794874696.8694513
+    },
+    {
+      "step": "weld",
+      "detail": "block welded to the gripper, hand open",
+      "t": 1794874699.37424
+    }
+  ],
+  "rendered_numbers": {
+    "iou_ext1_yellow": 0.9918777630369597,
+    "iou_ext1_blue": 0.8509706967130061,
+    "iou_ext1_teal": 0.805344707101376,
+    "background_match": 1.0,
+    "block_to_cup_m": 0.0012787674656197087
+  }
+}
