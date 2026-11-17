@@ -65,3 +65,11 @@ What changed after those reviews: the 8 mm constant and the 28 mm floor are gone
 **Position actuators, not torque tracking.** The brief is to replay this episode and let contact move the objects. Stiff joint tracking does that. Torque tracking is the step if the next episode is one the log has not played.
 
 **The monitor is a local page on port 8765**, polling `outputs/progress.json`. The reference photo for that screen never arrived, so the page is a lab console (score, gates, stills, the loop log) rather than a copy of a picture.
+
+## A review that arrived late
+
+One review scored the scene from before this log: block half-width `0.44 ×` the finger gap, cup radii clipped to 32 mm and 50 mm, rim 32 mm under the pinch, and no grasp-frame gate. It would not have advanced that scene, and it named three changes.
+
+The first and the third are already in the tree. The block half-width is the stereo blob, 15.9 mm. The cup bottom is the stereo radius, 24.2 mm. The rim is the fingertip plus the measured pad depth. `evalgate` scores both fixed cameras at frame 0 and at the grasp, compares two rollouts, and runs the three bad scenes. The grasp-frame miss it reported on ext2, about 49 px, does not reproduce. The current distance is 17.9 px.
+
+The wrist claim does not reproduce either. Projecting the resting block through `18026681_left` lands 0.5 px from a yellow pixel at step 0 and 0.1 px at step 40. The cup at step 40 is 54 px from the nearest blue pixel, at the edge of that frame. That is a close camera and a ring-shaped cup, which the write-up already names as the next mesh, not a wrong extrinsic. No pose fit was added, because the frames do not show a 350 px error. The cup is still three rings of boxes. Replacing it was left as the next step on purpose: the drop already passes, and a new shell would be a geometry change without a failing gate.
