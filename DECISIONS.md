@@ -66,7 +66,9 @@ What changed after those reviews: the 8 mm constant and the 28 mm floor are gone
 
 **0.95 after the stall, rather than a torque controller.** It matches the log’s saturated target, and it is applied only after the measured width stops falling. It is still a rule in code.
 
-**Position actuators, not torque tracking.** The brief is to replay this episode and let contact move the objects. Stiff joint tracking does that. Torque tracking is the step if the next episode is one the log has not played.
+**Position actuators, not a prescribed joint trajectory.** The Menagerie wrist torque limit is 12 Nm. Over a 70 ms step that servo leaves the flange 1.26 cm off the log. Prescribing `qpos` to the logged joints removes that error, and it also puts the fingertips through the block while the measured gripper is still open: the pinch is below the block top from step 46, and the width is only 0.14. The block is knocked 13 cm away and never lifted. The lag is what lets the fingers close before the hand arrives. The positions of the objects are still taken from forward kinematics of the log, which matches `cartesian_position`. The dynamic replay is not that ruler.
+
+**The real hand stays in the wrist plate.** Painting out the dark border-connected components, so the sim panel would show one gripper, left the silhouette of the fingers as a smear on the wood. Two hands in that panel is the real frame plus the simulated gripper. The smear was worse, so the inpaint was removed.
 
 **The monitor is a local page on port 8765**, polling `outputs/progress.json`. The reference photo for that screen never arrived, so the page is a lab console (score, gates, stills, the loop log) rather than a copy of a picture.
 
