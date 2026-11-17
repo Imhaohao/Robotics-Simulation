@@ -32,15 +32,12 @@ class SceneSpec:
     texture_dir: str | None
 
 
-def _quat_z(angle: float) -> list[float]:
-    return [math.cos(angle / 2.0), 0.0, 0.0, math.sin(angle / 2.0)]
-
-
 def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
     """A hollow shell. One mesh would be replaced by its convex hull and the block could not fall in.
 
-    The boxes are the wall the block hits, and they are the wall the cameras see.
+    The capsules are the wall the block hits, and they are the wall the cameras see.
     Their radii and height are the stereo hull on the scene, not a second shape.
+    Boxes at the same radii left corners the block could sit on.
     """
     cup = spec.worldbody.add_body(name="cup", pos=list(scene.cup_pos))
     cup.add_freejoint(name="cup_free")
@@ -53,23 +50,19 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
         rgba=list(scene.cup_rgba),
     )
     bottom.friction = [1.4, 0.02, 0.001]
-    rings = 4
-    count = 48
-    for ring in range(rings):
-        t0 = ring / rings
-        t1 = (ring + 1) / rings
-        radius = scene.cup_bottom_radius + (scene.cup_top_radius - scene.cup_bottom_radius) * (t0 + t1) / 2.0
-        center_z = -scene.cup_height / 2.0 + scene.cup_height * (t0 + t1) / 2.0
-        half_z = scene.cup_height / rings * 0.5 + 0.0004
+    # Vertical capsules, two bands, so the wall is the hull and does not show the
+    # horizontal ribs of a stack of boxes. A capsule is convex. The ring is hollow.
+    count = 64
+    for band, radius in ((0, scene.cup_bottom_radius), (1, scene.cup_top_radius)):
+        center_z = -scene.cup_height / 4.0 if band == 0 else scene.cup_height / 4.0
         for index in range(count):
             angle = 2.0 * math.pi * (index + 0.5) / count
             wall = cup.add_geom(
-                name=f"cup_wall_{ring}_{index}",
-                type=mujoco.mjtGeom.mjGEOM_BOX,
-                size=[0.0016, math.pi * radius / count * 1.02, half_z],
+                name=f"cup_wall_{band}_{index}",
+                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                size=[0.0022, scene.cup_height / 4.0],
                 pos=[radius * math.cos(angle), radius * math.sin(angle), center_z],
-                quat=_quat_z(angle),
-                mass=0.0004,
+                mass=0.0008,
                 rgba=list(scene.cup_rgba),
             )
             wall.friction = [0.35, 0.005, 0.0001]
