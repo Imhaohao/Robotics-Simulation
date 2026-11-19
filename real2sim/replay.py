@@ -197,6 +197,43 @@ def _place_block_drawing(model: mujoco.MjModel, index: int, grasp_index: int) ->
     model.geom_pos[geom, :3] = _BLOCK_DRAW_OFFSET * scale
 
 
+def _finger_visuals(model: mujoco.MjModel) -> list[tuple[int, float, float]]:
+    """Visual finger meshes, and how far to pull each one back while the hand is open.
+
+    The real fingertips stop short of the prism, with wood between them. The
+    Robotiq meshes reach it. The pull is along the finger, toward the knuckle,
+    and it is undone while the hand is closed so the pads still meet the block.
+    Collision geoms are group 3 and are left alone.
+    """
+    rows: list[tuple[int, float, float]] = []
+    for geom in range(model.ngeom):
+        if int(model.geom_group[geom]) == 3:
+            continue
+        body = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[geom])) or ""
+        if body.endswith("spring_link"):
+            pull = 0.020
+        elif body.endswith("follower"):
+            pull = 0.012
+        elif body.endswith("_pad"):
+            pull = 0.014
+        else:
+            continue
+        rows.append((geom, float(model.geom_pos[geom, 2]), pull))
+    return rows
+
+
+def _place_finger_visuals(
+    model: mujoco.MjModel,
+    rows: list[tuple[int, float, float]],
+    index: int,
+    grasp_index: int,
+    release_index: int,
+) -> None:
+    pull = index < grasp_index or index > release_index
+    for geom, home, amount in rows:
+        model.geom_pos[geom, 2] = home - (amount if pull else 0.0)
+
+
 def _over_plate(
     rgb: np.ndarray,
     seg: np.ndarray,
@@ -306,13 +343,14 @@ def rollout(
     weld = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, "block_weld")
     if weld >= 0:
         data.eq_active[weld] = 0
-    grasp_index, _ = grasp_release_indices(episode.gripper_position)
+    grasp_index, release_index = grasp_release_indices(episode.gripper_position)
     settle = int(0.4 / model.opt.timestep)
     for _ in range(settle):
         mujoco.mj_step(model, data)
 
     height, width = render_size
     renderer = mujoco.Renderer(model, height, width) if render else None
+    finger_visuals = _finger_visuals(model) if render else []
     frames = {name: [] for name in ("ext1", "ext2", "wrist")}
     joint_err = []
     flange_err = []
@@ -341,6 +379,7 @@ def rollout(
         # the drawing is slid onto the prism. It eases back onto the colliding
         # box as the hand takes it, and it is back there for the drop.
         _place_block_drawing(model, index, int(grasp_index))
+        _place_finger_visuals(model, finger_visuals, index, int(grasp_index), int(release_index))
         # cam_xpos is filled by the forward below. A pose written after the
         # step would otherwise leave the renderer on the previous camera.
         held = data.qpos.copy() if draw_logged_arm else None
