@@ -58,6 +58,53 @@ def _color_from_mask(frame_bgr: np.ndarray, name: str) -> np.ndarray | None:
     return None
 
 
+def _seat_teal(episode: Episode, teal_xy: np.ndarray, z: float, ext1, ext1_bgr: np.ndarray) -> np.ndarray:
+    """Slide the cube toward the corner the wrist actually shows.
+
+    The ext1 cloud plus the block's bias leaves the whole cube in the approach
+    frame. The real cube is a few pixels in the top-right corner. The slide
+    stops when ext1's nearest teal pixel would move more than 8 px.
+    """
+    wrist_bgr = read_video(episode.cameras["wrist"].video)[40]
+    hsv = cv2.cvtColor(wrist_bgr, cv2.COLOR_BGR2HSV)
+    sliver = cv2.inRange(hsv, (65, 40, 40), (100, 255, 255))
+    sliver[80:, :] = 0
+    sliver[:, :1000] = 0
+    ys, xs = np.nonzero(sliver)
+    if len(xs) < 20:
+        return teal_xy
+    corner = np.array([float(xs.mean()), float(ys.mean())])
+    # Past the corner, so the body of the cube leaves the frame.
+    target = corner + np.array([50.0, -40.0])
+    wrist = replace(episode.cameras["wrist"], extrinsics=episode.wrist_extrinsics[40])
+    point = np.array([float(teal_xy[0]), float(teal_xy[1]), z], dtype=np.float64)
+    base = project(wrist, point)
+    jac = np.zeros((2, 2), dtype=np.float64)
+    for axis in range(2):
+        nudged = point.copy()
+        nudged[axis] += 0.01
+        jac[:, axis] = (project(wrist, nudged) - base) / 0.01
+    step = np.linalg.lstsq(jac, target - base, rcond=None)[0]
+    ext1_hsv = cv2.cvtColor(ext1_bgr, cv2.COLOR_BGR2HSV)
+    ext1_mask = cv2.inRange(ext1_hsv, (70, 80, 60), (90, 255, 220))
+    ext1_mask[:300, :] = 0
+    ey, ex = np.nonzero(ext1_mask)
+    if len(ex) < 20:
+        return teal_xy
+    ext1_pts = np.stack([ex, ey], axis=1).astype(np.float64)
+
+    def nearest(xy: np.ndarray) -> float:
+        predicted = project(ext1, np.array([xy[0], xy[1], z]))
+        return float(np.min(np.linalg.norm(ext1_pts - predicted.reshape(1, 2), axis=1)))
+
+    start = nearest(teal_xy)
+    for scale in np.linspace(1.0, 0.0, 11):
+        trial = teal_xy + step * float(scale)
+        if nearest(trial) <= start + 8.0:
+            return trial
+    return teal_xy
+
+
 def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | None) -> tuple[SceneSpec, dict]:
     robot = robot_spec(assets).compile()
     pinch = site_positions(robot, episode.joint_position, "g_pinch")
@@ -101,6 +148,7 @@ def calibrate(episode: Episode, assets: Path, stereo_frame, texture_dir: Path | 
         teal_xy = teal.centroid[:2] + bias
         teal_half = float(np.clip(float(np.median(teal.size[:2])) / 2.0, 0.012, 0.028))
         teal_rgba = _tuple4(sampled["teal"]) if sampled["teal"] is not None else _tuple4(teal.rgba)
+        teal_xy = _seat_teal(episode, teal_xy, table_z + teal_half, episode.cameras["ext1"], left)
     else:
         teal_xy = np.array([block_xy[0] - 0.18, block_xy[1] + 0.10])
         teal_half = 0.018

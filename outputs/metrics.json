@@ -37,8 +37,8 @@
       1.0
     ],
     "teal_pos": [
-      0.42010598259253024,
-      0.21267454748083336,
+      0.38344833758084484,
+      0.24689272929298625,
       -0.014791693142447888
     ],
     "teal_half": 0.012937600233783673,
@@ -86,9 +86,9 @@
       0.015127922300823597
     ],
     "teal": [
-      0.42010598259253024,
-      0.21267454748083336,
-      -0.014899448559653368
+      0.38344833758084484,
+      0.24689272948644886,
+      -0.014899448562664043
     ]
   },
   "gripper_command": "measured width, with a close bias after the fingers stall",
@@ -107,18 +107,18 @@
     "flange_rmse_m": 0.012601591433077696,
     "block_to_cup_m": 0.000215624930731138,
     "block_z_m": 0.011489210419403996,
-    "teal_drift_m": 0.0,
+    "teal_drift_m": 1.9346260704544704e-10,
     "cup_drift_m": 0.001097750103826946,
     "cup_tilt_deg": 2.539886913909499e-05,
     "reproj_ext1_yellow_px": 21.713756554187622,
     "reproj_ext2_yellow_px": 38.38100727418273,
     "reproj_ext1_blue_px": 23.375980170734415,
     "reproj_ext2_blue_px": 41.11670929209149,
-    "reproj_ext1_teal_px": 558.9434503094142,
-    "reproj_ext2_teal_px": 35.477702993752665,
-    "iou_ext1_yellow": 0.9917737917496704,
+    "reproj_ext1_teal_px": 532.0037559847071,
+    "reproj_ext2_teal_px": 79.00814198645011,
+    "iou_ext1_yellow": 0.9928424975150449,
     "iou_ext1_blue": 0.868592145504628,
-    "iou_ext1_teal": 0.8096380915810694,
+    "iou_ext1_teal": 0.8112954583542819,
     "reproj_frame0_ext1_yellow_px": 0.8588534110886102,
     "reproj_frame0_ext1_blue_px": 0.7966082038558258,
     "reproj_frame0_ext2_yellow_px": 10.41469930719098,
@@ -135,6 +135,6 @@
   },
   "passed": true,
   "deterministic_calibration": true,
-  "simulate_s": 48.956112719999965,
+  "simulate_s": 48.835054374000265,
   "block_peak_z": 0.13936278938585103
 }
