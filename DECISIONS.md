@@ -172,4 +172,10 @@ The table under that camera was a darkened photo tile, scaled to 0.28. The wrist
 
 **[Review the lit gripper](bc-8f880701-d029-508c-ab72-055d175b94d3) (2026-11-19, 2:44pm PT).** No, on the frames before the fingertip pull. The drop still reads as a box between the pads, and the second fixed camera’s cup reads as two cylinders. That review did not see the shorter open fingertips.
 
-**Do not open the gripper early to match frame 80 (2026-11-19, 2:50pm PT).** Not shipped. At frame 80 the block is still between the pads, center z 6.8 cm. It is in the cup by frame 90. The real frame 80 already shows it in the cup. Replacing the squeeze with the measured width from frame 78, 76, or 74 still lifts the block, and then leaves it on the rim (11 mm off the axis) or on the table (57 mm off). The squeeze through the descent is what seats it. The drop picture at frame 80 stays the hand lowering the block.
+**Do not open the gripper early to match frame 80 (2026-11-19, 2:50pm PT).** Not shipped. At frame 80 the block is still between the pads, center z 6.8 cm. It is in the cup by frame 90. The real frame 80 already shows it in the cup. Replacing the squeeze with the measured width from frame 78, 76, or 74 still lifts the block, and then leaves it on the rim (11 mm off the axis) or on the table (57 mm off). The squeeze through the descent is what seats it.
+
+**A lighter grip on the way down (2026-11-19, 2:50pm PT).** Not shipped. After the lift (peak at step 69), commanding 0.57, 0.65, or 0.75 instead of the squeeze, from step 68, 72, or 76, does not put the box in the cup at frame 80. 0.57 drops it on the table, 56 to 59 mm off the axis. 0.65 and 0.75 still have the box at about z 6.9 cm at frame 80. The squeeze stays.
+
+**A blurred composite edge (2026-11-19, 2:50pm PT).** Not shipped. Blurring the foreground mask by a few pixels smears a second copy of the robot base across the striped wall. The fixed cameras stay a hard composite.
+
+**The drawing is lowered into the cup at frame 80 (2026-11-19, 2:53pm PT).** Shipped. The box is still in the fingers then (z 6.8 cm). The video shows the prism in the cup. The drawing, which does not collide, is lowered 4.2 cm from step 76 to 80 and is back on the box by step 90, when the box has landed. The approach offset is unchanged. The box still ends at z 0.0115 m and 0.22 mm from the axis.

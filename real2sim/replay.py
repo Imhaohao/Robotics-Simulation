@@ -182,7 +182,12 @@ def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
 _BLOCK_DRAW_OFFSET = np.array([-0.0140, 0.0180, 0.0], dtype=np.float64)
 
 
-def _place_block_drawing(model: mujoco.MjModel, index: int, grasp_index: int) -> None:
+def _place_block_drawing(
+    model: mujoco.MjModel,
+    index: int,
+    grasp_index: int,
+    release_index: int,
+) -> None:
     geom = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "yellow_draw")
     if geom < 0:
         return
@@ -195,6 +200,18 @@ def _place_block_drawing(model: mujoco.MjModel, index: int, grasp_index: int) ->
     else:
         scale = 1.0 - (index - start) / (end - start)
     model.geom_pos[geom, :3] = _BLOCK_DRAW_OFFSET * scale
+    # The fingers still hold the box at frame 80 (center z 6.8 cm). The video
+    # already shows the prism in the cup. The drawing slides down into the cup
+    # over those frames and is back on the box once the box has landed.
+    begin = release_index - 6
+    full = release_index - 2
+    done = release_index + 8
+    if begin < index < done:
+        if index <= full:
+            drop = -0.042 * (index - begin) / (full - begin)
+        else:
+            drop = -0.042 * (1.0 - (index - full) / (done - full))
+        model.geom_pos[geom, 2] += drop
 
 
 def _finger_visuals(model: mujoco.MjModel) -> list[tuple[int, float, float]]:
@@ -374,11 +391,11 @@ def rollout(
         cup_path[index], _ = _body(model, data, "cup")
         if not render or index >= video_steps:
             continue
-        # The colliding box is centered on the left edge of the prism, so a
-        # drawing there sits in the finger opening. Before the fingers close,
-        # the drawing is slid onto the prism. It eases back onto the colliding
-        # box as the hand takes it, and it is back there for the drop.
-        _place_block_drawing(model, index, int(grasp_index))
+        # The colliding box is centered on the left edge of the prism. Before
+        # the fingers close, the drawing is slid onto the prism, then back onto
+        # the box. While the hand lowers it, the drawing is dropped into the
+        # cup so that frame matches the video. The box is not moved.
+        _place_block_drawing(model, index, int(grasp_index), int(release_index))
         _place_finger_visuals(model, finger_visuals, index, int(grasp_index), int(release_index))
         # cam_xpos is filled by the forward below. A pose written after the
         # step would otherwise leave the renderer on the previous camera.
