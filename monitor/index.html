@@ -51,7 +51,7 @@
   ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
   ol li { margin: 6px 0; }
   .stills { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  .stills img { width: 100%; display: block; background: #000; }
+  .stills img, .stills video { width: 100%; display: block; background: #000; }
   .stills figcaption { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
   @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
 </style>
@@ -133,7 +133,9 @@ async function tick() {
   const stills = ["wrist_040", "wrist_080", "ext1_080", "ext2_080"].map(name =>
     `<figure><img src="/outputs/stills/${name}.jpg?t=${Date.now()}" alt="${name}" /><figcaption>${name.replace("_", " frame ")} · real | sim</figcaption></figure>`
   ).join("");
-  document.getElementById("stills").innerHTML = stills;
+  document.getElementById("stills").innerHTML =
+    `<figure><video src="/outputs/side_by_side.mp4" controls muted loop playsinline></video><figcaption>side by side · real | sim</figcaption></figure>` +
+    stills;
 }
 tick();
 setInterval(tick, 2000);
