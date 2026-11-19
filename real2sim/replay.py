@@ -150,11 +150,12 @@ def _object_mask(real_bgr: np.ndarray, table_only: bool) -> np.ndarray:
         teal_keep[teal_labels == index] = 255
     if teal_keep.max() > 0:
         keep = cv2.bitwise_or(keep, cv2.dilate(teal_keep, np.ones((15, 15), np.uint8)))
-    # The ext2 cube's lit face is the color of the table. Its shaded face is
+    # The cube's lit face is the color of the table. Its shaded face is
     # saturated and darker than value 150, which is where the range above stops,
     # so that cube stays in the plate and the render adds a second one. A lower
     # saturation merges the face into the wood. Keep a compact blob only when it
-    # is clearly more saturated than the wood around it.
+    # is clearly more saturated than the wood around it. ext1's face is only
+    # about 35 above the wood, so the bar is 34. The grain stays under 33.
     keep = cv2.bitwise_or(keep, _shaded_block(hsv, table_only=table_only))
     keep = cv2.bitwise_or(keep, _cup_face(hsv, table_only=table_only))
     return keep
@@ -176,7 +177,8 @@ def _shaded_block(hsv: np.ndarray, table_only: bool) -> np.ndarray:
         top = int(stats[index, cv2.CC_STAT_TOP])
         component_height = int(stats[index, cv2.CC_STAT_HEIGHT])
         component_width = int(stats[index, cv2.CC_STAT_WIDTH])
-        if table_only and top + component_height / 2.0 < height * 0.46:
+        # 0.40, not 0.46: at the drop the block sits just above the old line.
+        if table_only and top + component_height / 2.0 < height * 0.40:
             continue
         if max(component_width, component_height) > 1.8 * max(1, min(component_width, component_height)):
             continue
@@ -186,7 +188,9 @@ def _shaded_block(hsv: np.ndarray, table_only: bool) -> np.ndarray:
         if int(ring.sum()) < 20:
             continue
         contrast = float(hsv[:, :, 1][component].mean() - hsv[:, :, 1][ring].mean())
-        if contrast < 50.0:
+        # The ext1 face is about 35 above the wood. The grain that passes the
+        # size test stays under 33, so 34 keeps the block and leaves the table.
+        if contrast < 34.0:
             continue
         keep[component] = 255
     if keep.max() == 0:

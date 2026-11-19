@@ -197,3 +197,7 @@ The table under that camera was a darkened photo tile, scaled to 0.28. The wrist
 **[Review the single cup](bc-f04cba0d-ebc5-5a0d-8ac9-48ec44813fe3) (2026-11-19, 3:20pm PT).** No, on the frames before the prism was raised to 1.6 cm. That review still saw the real cup smeared beside the rendered cup on ext2, and the block at frame 80 as a patch on the wall. The wrist table is still the flat photograph.
 
 **The cup rim is in the mask (2026-11-19, 3:22pm PT).** Shipped. The face at hue 92 was removed, and a darker rim at about hue 82 and saturation 35 stayed, which read as a second cup. The band is now hue 78–96 and saturation 28, and a blob shorter than the cup is left alone so the mark lower on ext1’s table is not painted. The box still ends at z 0.0115 m and 0.22 mm from the axis.
+
+**A flat wood fill of the hole (2026-11-19, 3:30pm PT).** Rejected. Copying the wood color into the real cup left a tan cup beside the rendered one. The two cameras do not put the cup in the same place, so the rendered cup does not cover the hole. The blurred fill hides more of that hole than a flat patch does.
+
+**The ext1 block face is in the mask (2026-11-19, 3:32pm PT).** Shipped. The shaded face on ext1 is about 35 above the wood, under the old bar of 50, so the plate kept the real block under the rendered one. The bar is 34. Across the episode the grain that passes the size test stays under 33. The box still ends at z 0.0115 m and 0.22 mm from the axis.
