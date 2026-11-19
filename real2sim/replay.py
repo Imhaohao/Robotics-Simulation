@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import cv2
 import mujoco
 import numpy as np
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation, Slerp
 
 from real2sim.episode import Camera, Episode
 from real2sim.kinematics import grasp_release_indices, gripper_commands
@@ -270,6 +270,7 @@ _BLOCK_DRAW_OFFSET = np.array([-0.0098, 0.0126, 0.0], dtype=np.float64)
 
 def _place_block_drawing(
     model: mujoco.MjModel,
+    data: mujoco.MjData,
     index: int,
     grasp_index: int,
     release_index: int,
@@ -285,20 +286,44 @@ def _place_block_drawing(
         scale = 0.0
     else:
         scale = 1.0 - (index - start) / (end - start)
-    model.geom_pos[geom, :3] = _BLOCK_DRAW_OFFSET * scale
-    # The fingers still hold the box at frame 80 (center z 6.8 cm). The video
-    # shows the prism in the cup, sticking up past the rim. 4.2 cm put the
-    # drawing fully inside, which the side camera drew as a patch on the wall.
-    # 1.6 cm leaves the prism standing in the opening.
+    base = _BLOCK_DRAW_OFFSET * scale
+    model.geom_pos[geom, :3] = base
+    model.geom_quat[geom] = np.array([1.0, 0.0, 0.0, 0.0])
+    # At frame 80 the box is still in the fingers, 1.3 cm above the rim, and
+    # tilted about 11 degrees. Dropping the drawing along that tilt parks it
+    # on the near wall. Seat it upright on the cup axis instead. The top stands
+    # 14 mm above the rim, then the drawing eases back onto the box once the box lands.
     begin = release_index - 6
     full = release_index - 2
     done = release_index + 8
-    if begin < index < done:
-        if index <= full:
-            drop = -0.016 * (index - begin) / (full - begin)
-        else:
-            drop = -0.016 * (1.0 - (index - full) / (done - full))
-        model.geom_pos[geom, 2] += drop
+    if not begin < index < done:
+        return
+    if index <= full:
+        amount = (index - begin) / (full - begin)
+    else:
+        amount = 1.0 - (index - full) / (done - full)
+    yellow = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "yellow")
+    cup = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "cup")
+    wall = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "cup_wall_1_0")
+    box = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "yellow_geom")
+    if min(yellow, cup, wall, box) < 0:
+        return
+    rotation = data.xmat[yellow].reshape(3, 3)
+    half_height = float(model.geom_pos[wall, 2] + model.geom_size[wall, 1])
+    half = float(model.geom_size[box, 2])
+    rim = float(data.xpos[cup, 2] + half_height)
+    target = np.array(
+        [float(data.xpos[cup, 0]), float(data.xpos[cup, 1]), rim - half + 0.014],
+        dtype=np.float64,
+    )
+    seated = rotation.T @ (target - data.xpos[yellow])
+    model.geom_pos[geom, :3] = (1.0 - amount) * base + amount * seated
+    upright = Rotation.from_matrix(rotation.T)
+    blend = Slerp([0.0, 1.0], Rotation.concatenate([Rotation.identity(), upright]))
+    quat_xyzw = blend([amount]).as_quat()[0]
+    model.geom_quat[geom] = np.array(
+        [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]
+    )
 
 
 def _finger_visuals(model: mujoco.MjModel) -> list[tuple[int, float, float]]:
@@ -480,9 +505,9 @@ def rollout(
             continue
         # The colliding box is centered on the left edge of the prism. Before
         # the fingers close, the drawing is slid onto the prism, then back onto
-        # the box. While the hand lowers it, the drawing is dropped into the
-        # cup so that frame matches the video. The box is not moved.
-        _place_block_drawing(model, index, int(grasp_index), int(release_index))
+        # the box. While the hand lowers it, the drawing is seated upright in
+        # the cup opening. The box is not moved.
+        _place_block_drawing(model, data, index, int(grasp_index), int(release_index))
         _place_finger_visuals(model, finger_visuals, index, int(grasp_index), int(release_index))
         # cam_xpos is filled by the forward below. A pose written after the
         # step would otherwise leave the renderer on the previous camera.

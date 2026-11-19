@@ -201,3 +201,7 @@ The table under that camera was a darkened photo tile, scaled to 0.28. The wrist
 **A flat wood fill of the hole (2026-11-19, 3:30pm PT).** Rejected. Copying the wood color into the real cup left a tan cup beside the rendered one. The two cameras do not put the cup in the same place, so the rendered cup does not cover the hole. The blurred fill hides more of that hole than a flat patch does.
 
 **The ext1 block face is in the mask (2026-11-19, 3:32pm PT).** Shipped. The shaded face on ext1 is about 35 above the wood, under the old bar of 50, so the plate kept the real block under the rendered one. The bar is 34. Across the episode the grain that passes the size test stays under 33. The box still ends at z 0.0115 m and 0.22 mm from the axis.
+
+**[Review the cup rim](bc-5c884fe6-cc70-5748-97c3-a3c7910eefaf) (2026-11-19, 3:34pm PT).** No. At frame 80 the block read as stuck on the cup wall on the wrist and both side cameras, and the fingers still read as closed on it. That review was of the frames before the ext1 shaded face was removed. The wrist table is still the flat photograph, and the real gripper still shows beside the CAD.
+
+**The prism is seated upright in the opening (2026-11-19, 3:41pm PT).** Shipped. At frame 80 the box is 1.3 cm above the rim and tilted about 11 degrees, so a drop along the box puts the drawing into the near wall. The drawing is now moved onto the cup axis and stood upright, with the top 14 mm above the rim, then eased back onto the box by frame 90. The box still ends at z 0.0115 m and 0.22 mm from the axis.
