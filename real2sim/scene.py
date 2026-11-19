@@ -1,0 +1,303 @@
+"""Assemble the MuJoCo scene from a calibrated description of the episode."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+import mujoco
+import numpy as np
+
+from real2sim.kinematics import robot_spec
+
+
+@dataclass(frozen=True)
+class SceneSpec:
+    table_z: float
+    table_center: tuple[float, float]
+    table_half: tuple[float, float]
+    block_pos: tuple[float, float, float]
+    block_half: float
+    block_rgba: tuple[float, float, float, float]
+    cup_pos: tuple[float, float, float]
+    cup_height: float
+    cup_bottom_radius: float
+    cup_top_radius: float
+    cup_rgba: tuple[float, float, float, float]
+    teal_pos: tuple[float, float, float]
+    teal_half: float
+    teal_rgba: tuple[float, float, float, float]
+    wall_rgba: tuple[float, float, float, float]
+    texture_dir: str | None
+
+
+def _hex_prism(half: float) -> tuple[list[float], list[int]]:
+    """A prism whose flat-to-flat width matches the cube. Visual only."""
+    radius = half / math.cos(math.pi / 6.0)
+    vertices: list[float] = []
+    for z in (-half, half):
+        for index in range(6):
+            angle = math.pi / 6.0 + index * math.pi / 3.0
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
+    one_sided: list[int] = []
+    for index in range(1, 5):
+        one_sided.extend((0, index, index + 1))
+        one_sided.extend((6, 6 + index + 1, 6 + index))
+    for index in range(6):
+        nxt = (index + 1) % 6
+        a, b, c, d = index, nxt, 6 + index, 6 + nxt
+        one_sided.extend((a, b, d, a, d, c))
+    faces: list[int] = []
+    for index in range(0, len(one_sided), 3):
+        a, b, c = one_sided[index : index + 3]
+        faces.extend((a, b, c, a, c, b))
+    return vertices, faces
+
+
+def _cup_skin(scene: SceneSpec) -> tuple[list[float], list[int]]:
+    """The outer wall only. An inner wall 1.6 mm in z-fights and reads as ribs."""
+    count = 512
+    z0 = -scene.cup_height / 2.0
+    z1 = scene.cup_height / 2.0
+    vertices: list[float] = []
+    for radius, z in ((scene.cup_bottom_radius, z0), (scene.cup_top_radius, z1)):
+        for index in range(count):
+            angle = 2.0 * math.pi * index / count
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
+    faces: list[int] = []
+    for index in range(count):
+        nxt = (index + 1) % count
+        a, b = index, nxt
+        c, d = count + index, count + nxt
+        faces.extend((a, d, b, a, c, d))
+    return vertices, faces
+
+
+def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
+    """A hollow shell. One mesh would be replaced by its convex hull and the block could not fall in.
+
+    The capsules are the wall the block hits. They are the stereo radii. A lit stack
+    of capsules reads as ribs, so the cameras see one smooth skin of those same radii.
+    The skin does not collide. Boxes at the same radii left corners the block could sit on.
+    """
+    cup = spec.worldbody.add_body(name="cup", pos=list(scene.cup_pos))
+    cup.add_freejoint(name="cup_free")
+    bottom = cup.add_geom(
+        name="cup_bottom",
+        type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        size=[min(scene.cup_bottom_radius, scene.cup_top_radius) - 0.0016, 0.0025, 0.0],
+        pos=[0.0, 0.0, -scene.cup_height / 2.0 + 0.0025],
+        mass=0.22,
+        rgba=list(scene.cup_rgba),
+    )
+    bottom.friction = [1.4, 0.02, 0.001]
+    # Vertical capsules, two bands, so the wall is the hull and does not show the
+    # horizontal ribs of a stack of boxes. A capsule is convex. The ring is hollow.
+    count = 64
+    for band, radius in ((0, scene.cup_bottom_radius), (1, scene.cup_top_radius)):
+        center_z = -scene.cup_height / 4.0 if band == 0 else scene.cup_height / 4.0
+        for index in range(count):
+            angle = 2.0 * math.pi * (index + 0.5) / count
+            wall = cup.add_geom(
+                name=f"cup_wall_{band}_{index}",
+                type=mujoco.mjtGeom.mjGEOM_CAPSULE,
+                size=[0.0022, scene.cup_height / 4.0],
+                pos=[radius * math.cos(angle), radius * math.sin(angle), center_z],
+                mass=0.0008,
+                rgba=list(scene.cup_rgba),
+            )
+            wall.friction = [0.35, 0.005, 0.0001]
+            wall.group = 3
+    skin = spec.add_mesh()
+    skin.name = "cup_skin"
+    vertices, faces = _cup_skin(scene)
+    skin.uservert = vertices
+    skin.userface = faces
+    skin.smoothnormal = True
+    # The real cup is matte. The default specular turns this skin into a glassy dome.
+    cup_mat = spec.add_material()
+    cup_mat.name = "cup_matte"
+    # The stereo sample is the shadowed face and reads as a cyan highlight.
+    # A lighter blue is what keeps the skin from looking like that highlight.
+    cup_mat.rgba = [0.25, 0.55, 0.75, 1.0]
+    # The floor is in shadow. The same blue as the wall reads as a bright hole.
+    bottom.rgba = [0.10, 0.28, 0.42, 1.0]
+    cup_mat.specular = 0.02
+    cup_mat.shininess = 0.03
+    drawn = cup.add_geom(
+        name="cup_skin",
+        type=mujoco.mjtGeom.mjGEOM_MESH,
+        meshname="cup_skin",
+        material="cup_matte",
+        rgba=list(scene.cup_rgba),
+        mass=0.0,
+        contype=0,
+        conaffinity=0,
+        group=0,
+    )
+    del drawn
+
+
+def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> mujoco.MjModel:
+    spec = robot_spec(assets)
+    spec.option.timestep = 0.001
+    spec.visual.global_.offwidth = 1280
+    spec.visual.global_.offheight = 720
+    # A zero diffuse left the gripper a black mass, because the overhead light
+    # never reaches the underside the wrist camera sees. This much lights the
+    # finger pads. More than this turned the cup into a highlight.
+    spec.visual.headlight.ambient = [0.72, 0.66, 0.56]
+    spec.visual.headlight.diffuse = [0.22, 0.20, 0.16]
+    spec.visual.headlight.specular = [0.0, 0.0, 0.0]
+    spec.worldbody.add_light(
+        pos=[0.2, 0.0, 1.8],
+        dir=[0.05, 0.05, -1.0],
+        diffuse=[0.50, 0.46, 0.38],
+        specular=[0.0, 0.0, 0.0],
+        ambient=[0.02, 0.02, 0.02],
+        cutoff=80,
+        castshadow=True,
+    )
+
+    if scene.texture_dir:
+        rgb = int(mujoco.mjtTextureRole.mjTEXROLE_RGB)
+        for name, filename in (("wood", "wood.png"), ("stripe", "stripe.png")):
+            texture = spec.add_texture()
+            texture.name = name
+            texture.type = int(mujoco.mjtTexture.mjTEXTURE_2D)
+            texture.file = str(Path(scene.texture_dir, filename).resolve())
+            material = spec.add_material()
+            material.name = f"{name}_mat"
+            # The wood photo is one patch of the real table, shown once. Averaging
+            # it (texuniform) is the flat tone. The stripe stays averaged.
+            material.texuniform = name != "wood"
+            material.texrepeat = [1.2, 1.2] if name == "wood" else [1.0, 1.0]
+            # The texture is the color. A tint here would stain the photograph.
+            material.rgba = [1.0, 1.0, 1.0, 1.0]
+            slots = [""] * 10
+            slots[rgb] = name
+            material.textures = slots
+
+    table = spec.worldbody.add_body(
+        name="table_body",
+        pos=[scene.table_center[0], scene.table_center[1], scene.table_z - 0.02],
+    )
+    top = table.add_geom(
+        name="table",
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[scene.table_half[0], scene.table_half[1], 0.02],
+        rgba=[0.72, 0.52, 0.30, 1.0],
+    )
+    top.friction = [1.15, 0.005, 0.0001]
+    if scene.texture_dir:
+        top.material = "wood_mat"
+        top.rgba = [1.0, 1.0, 1.0, 1.0]
+    # A pale rectangle was fitted to the white strip, but in the wrist view it
+    # reads as a bar floating over the table, so it is not drawn.
+
+    mount = spec.worldbody.add_body(name="mount", pos=[0.0, 0.0, scene.table_z / 2.0])
+    puck = mount.add_geom(
+        type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        size=[0.09, abs(scene.table_z) / 2.0, 0.0],
+        rgba=[0.12, 0.12, 0.12, 1.0],
+        contype=0,
+        conaffinity=0,
+    )
+    del puck
+
+    wall = spec.worldbody.add_body(name="gray_wall", pos=[0.55, 0.85, 0.55])
+    wall.add_geom(
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[0.9, 0.02, 0.7],
+        rgba=list(scene.wall_rgba),
+        contype=0,
+        conaffinity=0,
+    )
+    stripes = spec.worldbody.add_body(name="stripes", pos=[1.15, 0.05, 0.6])
+    stripe_geom = stripes.add_geom(
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[0.02, 0.55, 0.7],
+        rgba=[0.4, 0.55, 0.7, 1.0],
+        contype=0,
+        conaffinity=0,
+    )
+    if scene.texture_dir:
+        stripe_geom.material = "stripe_mat"
+        stripe_geom.rgba = [1.0, 1.0, 1.0, 1.0]
+
+    block = spec.worldbody.add_body(name="yellow", pos=list(scene.block_pos))
+    block.add_freejoint(name="yellow_free")
+    # The real block is a translucent prism. Alpha does not enter the contact.
+    block_rgba = list(scene.block_rgba)
+    block_rgba[3] = 0.40
+    # A default specular makes the face a hard highlight. The real block is frosted.
+    block_mat = spec.add_material()
+    block_mat.name = "block_matte"
+    block_mat.rgba = block_rgba
+    block_mat.specular = 0.02
+    block_mat.shininess = 0.03
+    yellow = block.add_geom(
+        name="yellow_geom",
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[scene.block_half, scene.block_half, scene.block_half],
+        mass=0.035,
+        rgba=block_rgba,
+        condim=6,
+        group=3,
+    )
+    yellow.friction = [2.5, 0.1, 0.01]
+    yellow.solref = [0.01, 1.0]
+    yellow.solimp = [0.95, 0.99, 0.001, 0.5, 2.0]
+    # The colliding box is centered on the left edge of the real prism, so a
+    # drawing there sits in the finger opening. This copy is only drawn, 18 mm
+    # toward the prism. Ten millimetres puts it back in the opening. The replay
+    # eases it back onto the box once the hand is holding it, so the drop still
+    # shows the block in the cup.
+    # The wrist sees a hexagonal prism. The colliding shape stays the box.
+    prism = spec.add_mesh()
+    prism.name = "yellow_prism"
+    vertices, faces = _hex_prism(scene.block_half)
+    prism.uservert = vertices
+    prism.userface = faces
+    drawn_block = block.add_geom(
+        name="yellow_draw",
+        type=mujoco.mjtGeom.mjGEOM_MESH,
+        meshname="yellow_prism",
+        pos=[-0.0140, 0.0180, 0.0],
+        mass=0.0,
+        material="block_matte",
+        rgba=block_rgba,
+        contype=0,
+        conaffinity=0,
+        group=0,
+    )
+    del drawn_block
+
+    _add_cup(spec, scene)
+
+    teal = spec.worldbody.add_body(name="teal", pos=list(scene.teal_pos))
+    teal.add_freejoint(name="teal_free")
+    cube = teal.add_geom(
+        name="teal_geom",
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[scene.teal_half, scene.teal_half, scene.teal_half],
+        mass=0.04,
+        rgba=list(scene.teal_rgba),
+    )
+    cube.friction = [0.9, 0.01, 0.0001]
+
+    for name in ("ext1", "ext2", "wrist"):
+        spec.worldbody.add_camera(name=name, fovy=50, pos=[0.3, 0.0, 0.4])
+    if weld_block:
+        # A block glued to the gripper must fail the open-hand check.
+        weld = spec.add_equality()
+        weld.name = "block_weld"
+        weld.type = mujoco.mjtEq.mjEQ_WELD
+        weld.objtype = mujoco.mjtObj.mjOBJ_BODY
+        weld.name1 = "yellow"
+        weld.name2 = "g_base"
+        # data[1] is torquescale. At 1, that value is added to the weld's y
+        # offset, so the glue aims a meter beside the hand and never holds.
+        weld.data[1] = 0.0
+    return spec.compile()

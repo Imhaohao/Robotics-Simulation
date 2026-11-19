@@ -1,0 +1,10 @@
+{
+  "task": "drop yellow block into blue cup",
+  "robot": "Franka FR3 arm + Robotiq 2F-85 gripper",
+  "steps": 101,
+  "cameras": {
+    "ext1": "22008760",
+    "ext2": "24400334",
+    "wrist": "18026681"
+  }
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Real2sim eval</title>
+<style>
+  :root {
+    --bg: #12110e;
+    --panel: #1c1a16;
+    --line: #2e2a24;
+    --ink: #f3efe6;
+    --muted: #a39b8d;
+    --amber: #e4a322;
+    --pass: #8fbf7a;
+    --fail: #d46a4c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 28px 36px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 22px; font-weight: 500; margin: 0; letter-spacing: 0.01em; }
+  header p { margin: 6px 0 0; color: var(--muted); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 12px; }
+  .score {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 56px;
+    line-height: 0.9;
+    color: var(--amber);
+  }
+  .score span { font-size: 16px; color: var(--muted); }
+  main { display: grid; grid-template-columns: 280px 1fr 280px; gap: 22px; padding: 22px 36px 40px; }
+  section { background: var(--panel); border: 1px solid var(--line); padding: 16px 18px; }
+  h2 { margin: 0 0 12px; font-size: 13px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .gate { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .gate b { font-weight: 500; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .pass { color: var(--pass); }
+  .fail { color: var(--fail); }
+  .wait { color: var(--muted); }
+  .bar { height: 8px; background: #2a261f; margin: 8px 0 14px; }
+  .bar i { display: block; height: 100%; background: var(--amber); }
+  ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+  ol li { margin: 6px 0; }
+  .stills { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .stills img, .stills video { width: 100%; display: block; background: #000; }
+  .stills figcaption { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Real2sim · drop the block in the cup</h1>
+    <p id="status">trekion_real2sim_v1 · waiting for the first case</p>
+  </div>
+  <div class="score" id="score">–<span> / 100</span></div>
+</header>
+<main>
+  <section>
+    <h2>Gates</h2>
+    <div id="gates"></div>
+  </section>
+  <section>
+    <h2>Cameras</h2>
+    <div class="stills" id="stills"></div>
+  </section>
+  <section>
+    <h2>Score</h2>
+    <div id="bars"></div>
+    <h2>Loop</h2>
+    <ol id="log"></ol>
+  </section>
+</main>
+<script>
+const gateOrder = [
+  ["free_bodies", "Free bodies"],
+  ["open_leaves_block_on_table", "Open hand leaves the block"],
+  ["welded_block_is_rejected", "A weld is rejected"],
+  ["block_in_cup", "Block ends in the cup"],
+  ["block_was_lifted", "Block was lifted"],
+  ["cup_stable", "Cup stays put"],
+  ["teal_stayed", "Teal cube stays"],
+  ["arm_tracks", "Arm tracks the log"],
+  ["two_runs_match", "Two runs match"],
+  ["raw_target_fails", "Raw target fails"],
+  ["wide_block_fails", "Wide block fails"],
+  ["high_table_fails", "High table fails"],
+  ["reprojection", "Cameras within 40 px"]
+];
+function cls(value) {
+  if (value === true) return "pass";
+  if (value === false) return "fail";
+  return "wait";
+}
+function word(value) {
+  if (value === true) return "pass";
+  if (value === false) return "fail";
+  return "…";
+}
+async function tick() {
+  let data = null;
+  try {
+    const response = await fetch("/outputs/progress.json?t=" + Date.now());
+    if (response.ok) data = await response.json();
+  } catch (err) { /* server still starting */ }
+  if (!data) return;
+  const score = data.score && data.score.total != null ? data.score.total : null;
+  document.getElementById("score").innerHTML = (score == null ? "–" : score) + "<span> / 100</span>";
+  document.getElementById("status").textContent = "trekion_real2sim_v1 · " + (data.status || "running");
+  document.getElementById("gates").innerHTML = gateOrder.map(([key, label]) => {
+    const value = data.gates ? data.gates[key] : undefined;
+    return `<div class="gate"><span>${label}</span><b class="${cls(value)}">${word(value)}</b></div>`;
+  }).join("");
+  const parts = data.score ? [
+    ["Realism", data.score.realism.total, 35],
+    ["Pipeline", data.score.pipeline.total, 35],
+    ["Scaling", data.score.scaling.total, 30]
+  ] : [];
+  document.getElementById("bars").innerHTML = parts.map(([name, value, max]) =>
+    `<div>${name} ${value}/${max}<div class="bar"><i style="width:${Math.round(100*value/max)}%"></i></div></div>`
+  ).join("");
+  const log = data.log || [];
+  document.getElementById("log").innerHTML = log.map(row => `<li>${row.step} — ${row.detail}</li>`).join("");
+  const stills = ["wrist_040", "wrist_080", "ext1_080", "ext2_080"].map(name =>
+    `<figure><img src="/outputs/stills/${name}.jpg?t=${Date.now()}" alt="${name}" /><figcaption>${name.replace("_", " frame ")} · real | sim</figcaption></figure>`
+  ).join("");
+  document.getElementById("stills").innerHTML =
+    `<figure><video src="/outputs/side_by_side.mp4" controls muted loop playsinline></video><figcaption>side by side · real | sim</figcaption></figure>` +
+    stills;
+}
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
+</html>

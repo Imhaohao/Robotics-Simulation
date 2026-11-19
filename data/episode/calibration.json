@@ -1,0 +1,67 @@
+{
+  "conventions": {
+    "frame": "robot base frame (FR3 link0), metres, z up",
+    "extrinsics": "[x, y, z, rx, ry, rz]: pose of the LEFT camera in the robot base frame; rotation = scipy Rotation.from_euler('xyz', [rx, ry, rz]); camera axes are OpenCV (x right, y down, z forward)",
+    "intrinsics": "ZED factory calibration of the rectified left image (fx, fy, cx, cy in pixels)",
+    "video": "MP4, frame i corresponds to trajectory step i (100 frames, 101 steps)",
+    "control": "trajectory steps are ~15 Hz (see observation/timestamp/robot_state/*)"
+  },
+  "cameras": {
+    "ext1": {
+      "serial": "22008760",
+      "width": 1280,
+      "height": 720,
+      "fx": 524.24609375,
+      "fy": 524.24609375,
+      "cx": 639.777587890625,
+      "cy": 370.27789306640625,
+      "distortion": "none (ZED rectified)",
+      "baseline_m": 0.12005812674760818,
+      "video": "recordings/MP4/22008760.mp4",
+      "stereo_video": "recordings/MP4/22008760-stereo.mp4 (left|right side by side, 2560x720)",
+      "extrinsics_xyz_euler": [
+        0.2256552520414773,
+        0.6071800031562721,
+        0.28626581597666506,
+        -1.9839358570154344,
+        -0.013221358635326697,
+        -2.4291658876333457
+      ]
+    },
+    "ext2": {
+      "serial": "24400334",
+      "width": 1280,
+      "height": 720,
+      "fx": 532.13232421875,
+      "fy": 532.13232421875,
+      "cx": 636.1519775390625,
+      "cy": 344.00799560546875,
+      "distortion": "none (ZED rectified)",
+      "baseline_m": 0.12015504390001297,
+      "video": "recordings/MP4/24400334.mp4",
+      "stereo_video": "recordings/MP4/24400334-stereo.mp4 (left|right side by side, 2560x720)",
+      "extrinsics_xyz_euler": [
+        0.1344597394260974,
+        -0.41530879379734875,
+        0.30128760608311006,
+        -2.002331952815573,
+        0.05285073997987322,
+        -1.0676196511770952
+      ]
+    },
+    "wrist": {
+      "serial": "18026681",
+      "width": 1280,
+      "height": 720,
+      "fx": 732.2020874023438,
+      "fy": 732.2020874023438,
+      "cx": 640.0441284179688,
+      "cy": 365.7880554199219,
+      "distortion": "none (ZED rectified)",
+      "baseline_m": 0.06306080520153046,
+      "video": "recordings/MP4/18026681.mp4",
+      "stereo_video": "recordings/MP4/18026681-stereo.mp4 (left|right side by side, 2560x720)",
+      "extrinsics_xyz_euler": "per step: trajectory.h5 observation/camera_extrinsics/18026681_left"
+    }
+  }
+}
