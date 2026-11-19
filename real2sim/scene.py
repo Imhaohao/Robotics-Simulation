@@ -143,11 +143,11 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     spec.option.timestep = 0.001
     spec.visual.global_.offwidth = 1280
     spec.visual.global_.offheight = 720
-    # The headlight sits on the camera, so any diffuse there is a highlight on
-    # the cup. An overhead light gives the cup a shaded side and a contact
-    # shadow. Specular stays off.
+    # A zero diffuse left the gripper a black mass, because the overhead light
+    # never reaches the underside the wrist camera sees. This much lights the
+    # finger pads. More than this turned the cup into a highlight.
     spec.visual.headlight.ambient = [0.72, 0.66, 0.56]
-    spec.visual.headlight.diffuse = [0.0, 0.0, 0.0]
+    spec.visual.headlight.diffuse = [0.22, 0.20, 0.16]
     spec.visual.headlight.specular = [0.0, 0.0, 0.0]
     spec.worldbody.add_light(
         pos=[0.2, 0.0, 1.8],
@@ -243,7 +243,7 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     block.add_freejoint(name="yellow_free")
     # The real block is a translucent prism. Alpha does not enter the contact.
     block_rgba = list(scene.block_rgba)
-    block_rgba[3] = 0.22
+    block_rgba[3] = 0.40
     # A default specular makes the face a hard highlight. The real block is frosted.
     block_mat = spec.add_material()
     block_mat.name = "block_matte"
