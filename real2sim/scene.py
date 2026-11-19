@@ -220,4 +220,7 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
         weld.objtype = mujoco.mjtObj.mjOBJ_BODY
         weld.name1 = "yellow"
         weld.name2 = "g_base"
+        # data[1] is torquescale. At 1, that value is added to the weld's y
+        # offset, so the glue aims a meter beside the hand and never holds.
+        weld.data[1] = 0.0
     return spec.compile()

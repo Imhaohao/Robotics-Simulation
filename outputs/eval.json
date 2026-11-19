@@ -1,12 +1,12 @@
 {
   "eval": "trekion_real2sim_v1",
-  "status": "failed",
-  "passed": false,
+  "status": "passed",
+  "passed": true,
   "pass_score": 85,
   "gates": {
     "free_bodies": true,
     "open_leaves_block_on_table": true,
-    "welded_block_is_rejected": false,
+    "welded_block_is_rejected": true,
     "block_in_cup": true,
     "block_was_lifted": true,
     "cup_stable": true,
@@ -16,14 +16,14 @@
     "raw_target_fails": true,
     "wide_block_fails": true,
     "high_table_fails": true,
-    "reprojection": false
+    "reprojection": true
   },
   "score": {
     "realism": {
       "outcome_and_tracking": 15,
       "geometry_from_measurement": 8,
-      "visual": 0,
-      "total": 23
+      "visual": 12,
+      "total": 35
     },
     "pipeline": {
       "one_command": 10,
@@ -37,19 +37,17 @@
       "what_stays_human": 8,
       "total": 28
     },
-    "total": 86,
+    "total": 98,
     "numbers_used": {
       "joint_rmse_rad": 0.013027740848486154,
       "flange_rmse_m": 0.012601591433077696,
       "block_to_cup_m": 0.000215624930731138,
       "cup_drift_m": 0.001097750103826946,
       "teal_drift_m": 0.0,
-      "simulate_s": 2.8197015060000297
+      "simulate_s": 2.9225409410000793
     }
   },
-  "reproj_missing_or_over": [
-    "reproj_grasp_wrist_yellow_px"
-  ],
+  "reproj_missing_or_over": [],
   "cases": {
     "nominal_block_to_cup_m": 0.000215624930731138,
     "open_yellow_z": -0.01188209954416194,
@@ -61,44 +59,44 @@
     "nominal_peak_z": 0.13936278938585103,
     "high_in_cup": false,
     "high_block_to_cup_m": 0.15251864477836558,
-    "welded_yellow_z": -0.006002500634217271,
+    "welded_yellow_z": 0.13570379005144892,
     "pose_delta_m": 0.0
   },
   "log": [
     {
       "step": "nominal",
       "detail": "calibrate and replay",
-      "t": 1795120233.0381727
+      "t": 1795120999.5198767
     },
     {
       "step": "repeat",
       "detail": "second run for determinism",
-      "t": 1795120235.8782704
+      "t": 1795121002.4619844
     },
     {
       "step": "open",
       "detail": "gripper held open",
-      "t": 1795120238.1690788
+      "t": 1795121004.8538105
     },
     {
       "step": "raw",
       "detail": "logged target gripper",
-      "t": 1795120240.472392
+      "t": 1795121007.2099125
     },
     {
       "step": "wide",
       "detail": "block twice as wide",
-      "t": 1795120242.7476318
+      "t": 1795121009.5508323
     },
     {
       "step": "table",
       "detail": "table 5 cm high",
-      "t": 1795120245.031138
+      "t": 1795121011.8939407
     },
     {
       "step": "weld",
       "detail": "block welded to the gripper, hand open",
-      "t": 1795120247.309169
+      "t": 1795121014.2611322
     }
   ]
 }

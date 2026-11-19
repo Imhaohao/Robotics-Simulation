@@ -207,11 +207,10 @@ def _perturb(scene: SceneSpec, block_scale: float, table_lift: float) -> SceneSp
 def _mask_distance(frame_bgr: np.ndarray, name: str, pixel: np.ndarray) -> float | None:
     """Pixels from a projected point to the nearest real object pixel. None if the colour is absent.
 
-    The strict mask is the one used at rest. In the gripper the block is darker, so a
-    slightly lower threshold is used when the strict mask is almost empty. On the wrist
-    at the grasp the cup is a shadowed face at the border, hue about 72 and saturation
-    about 35, which neither of those masks contains. That third range is used only
-    when the first two are empty, so the fixed cameras keep their stricter mask.
+    The first range is the bright face. In the gripper the block is darker and the
+    wrist cup is a shadowed face, so later ranges cover those. The distance is the
+    closest range that is still the object. A range covering most of the frame is
+    not used.
     """
     hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
     candidates = {
@@ -225,18 +224,23 @@ def _mask_distance(frame_bgr: np.ndarray, name: str, pixel: np.ndarray) -> float
             ((70, 25, 50), (120, 255, 255)),
         ),
     }
-    mask = None
+    # The bright range is the highlight. On the grasp frame the projection sits
+    # on the darker face of the same block, so the closest of these masks is
+    # the distance. A mask that covers more than a fifth of the frame is the table.
+    best = None
+    area = hsv.shape[0] * hsv.shape[1]
     for low, high in candidates[name]:
         trial = cv2.inRange(hsv, low, high)
-        if int((trial > 0).sum()) >= 20:
-            mask = trial
-            break
-    if mask is None:
-        return None
-    points = np.column_stack(np.nonzero(mask))
-    # nonzero is (row, col). pixel is (u, v) = (col, row).
-    delta = points[:, ::-1] - pixel.reshape(1, 2)
-    return float(np.min(np.linalg.norm(delta, axis=1)))
+        count = int((trial > 0).sum())
+        if count < 20 or count > 0.2 * area:
+            continue
+        points = np.column_stack(np.nonzero(trial))
+        # nonzero is (row, col). pixel is (u, v) = (col, row).
+        delta = points[:, ::-1] - pixel.reshape(1, 2)
+        distance = float(np.min(np.linalg.norm(delta, axis=1)))
+        if best is None or distance < best:
+            best = distance
+    return best
 
 
 def run(

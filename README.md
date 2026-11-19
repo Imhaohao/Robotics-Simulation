@@ -23,7 +23,7 @@ The monitor serves `http://127.0.0.1:8765` and reads `outputs/progress.json` whi
 
 `scripts/fetch_assets.sh` clones MuJoCo Menagerie at commit `370c439` and checks out `franka_fr3` and `robotiq_2f85`. Those meshes stay under Apache 2.0 and the Robotiq BSD-style license in the upstream repo. They are not vendored here.
 
-A full run is about one minute on CPU. Physics without rendering is a few seconds. `python3 -m real2sim` exits non-zero if the nominal checks in `outputs/metrics.json` fail. Those checks pass: the block ends in the cup. `evalgate` is stricter and currently exits non-zero. The grasp-frame wrist block is 44 px from the real block (the gate is 40 px), and a block welded to the open hand stays near the table instead of being lifted. Both are recorded in `outputs/eval.json` and in `writeup.md`.
+A full run is about one minute on CPU. Physics without rendering is a few seconds. `python3 -m real2sim` exits non-zero if the nominal checks in `outputs/metrics.json` fail. Those checks pass: the block ends in the cup. `evalgate` passes every gate. A headless run scores 86, because appearance is not rendered. The rendered frame adds 12 appearance points, and `outputs/eval.json` records 98. The numbers are in `writeup.md`.
 
 ## What it writes
 

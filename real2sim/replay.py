@@ -11,7 +11,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from real2sim.episode import Camera, Episode
-from real2sim.kinematics import gripper_commands
+from real2sim.kinematics import grasp_release_indices, gripper_commands
 
 
 @dataclass
@@ -196,6 +196,34 @@ def _over_plate(
     return plated, float(1.0 - delta.mean() / 255.0)
 
 
+def _glue_weld(model: mujoco.MjModel, data: mujoco.MjData) -> None:
+    """Point the weld at the block's pose relative to the hand right now.
+
+    The compiled target is the home-pose offset, and a torque scale of 1 is
+    added into that offset's y, so the constraint pulls toward the wrong place.
+    Gluing while the hand is still up attaches the block 40 cm below the wrist,
+    which leaves it on the table. Call this once the hand has reached the block.
+    """
+    eq = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, "block_weld")
+    if eq < 0:
+        return
+    yellow, yellow_rot = _body(model, data, "yellow")
+    base, base_rot = _body(model, data, "g_base")
+    # obj2 relative to obj1, in obj1's frame. The other sign leaves a 0.4 m error.
+    relative_rot = yellow_rot.T @ base_rot
+    quat = np.zeros(4, dtype=np.float64)
+    mujoco.mju_mat2Quat(quat, np.ascontiguousarray(relative_rot).reshape(9))
+    row = model.eq_data[eq]
+    row[1] = 0.0
+    row[3:6] = yellow_rot.T @ (base - yellow)
+    row[6:10] = quat
+    row[10] = 1.0
+    # The default impedance never reaches 1, so the block stays on the table.
+    model.eq_solref[eq] = [0.005, 1.0]
+    model.eq_solimp[eq] = [0.99, 0.999, 0.001, 0.5, 2.0]
+    data.eq_active[eq] = 1
+
+
 def rollout(
     model: mujoco.MjModel,
     episode: Episode,
@@ -231,6 +259,12 @@ def rollout(
     for actuator, value in zip(actuators, episode.joint_position[0]):
         data.ctrl[actuator] = value
     data.ctrl[fingers] = 0.0
+    # The compiled weld aims at the home pose. Leave it off until the hand
+    # reaches the block, then glue the block to that hand.
+    weld = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, "block_weld")
+    if weld >= 0:
+        data.eq_active[weld] = 0
+    grasp_index, _ = grasp_release_indices(episode.gripper_position)
     settle = int(0.4 / model.opt.timestep)
     for _ in range(settle):
         mujoco.mj_step(model, data)
@@ -246,6 +280,8 @@ def rollout(
     foreground = _foreground_geoms(model) if render and composite else np.zeros(0, dtype=np.int32)
     background_match = 0.0
     for index in range(episode.steps):
+        if weld >= 0 and index == int(grasp_index):
+            _glue_weld(model, data)
         for actuator, value in zip(actuators, episode.joint_position[index]):
             data.ctrl[actuator] = value
         data.ctrl[fingers] = float(commands[index] * 255.0)
