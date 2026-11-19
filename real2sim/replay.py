@@ -177,6 +177,7 @@ def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
 
 # Measured so the drawing's center lands on the real prism at the approach.
 # The full 22 mm centering leaves the drawing on the cup rim at the drop.
+# 18 mm puts the drawing on the prism. 10 mm puts it back in the finger opening.
 _BLOCK_DRAW_OFFSET = np.array([-0.0082, 0.0160, 0.0], dtype=np.float64)
 
 

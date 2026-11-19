@@ -34,7 +34,7 @@ class SceneSpec:
 
 def _cup_skin(scene: SceneSpec) -> tuple[list[float], list[int]]:
     """The outer wall only. An inner wall 1.6 mm in z-fights and reads as ribs."""
-    count = 128
+    count = 512
     z0 = -scene.cup_height / 2.0
     z1 = scene.cup_height / 2.0
     vertices: list[float] = []
@@ -238,9 +238,10 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     yellow.solref = [0.01, 1.0]
     yellow.solimp = [0.95, 0.99, 0.001, 0.5, 2.0]
     # The colliding box is centered on the left edge of the real prism, so a
-    # drawing there sits in the finger opening. This copy is only drawn. The
-    # replay slides it onto the prism before the grasp and back onto the box
-    # once the hand is holding it, so the drop still shows the block in the cup.
+    # drawing there sits in the finger opening. This copy is only drawn, 18 mm
+    # toward the prism. Ten millimetres puts it back in the opening. The replay
+    # eases it back onto the box once the hand is holding it, so the drop still
+    # shows the block in the cup.
     drawn_block = block.add_geom(
         name="yellow_draw",
         type=mujoco.mjtGeom.mjGEOM_BOX,
