@@ -218,11 +218,10 @@ def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
     return cv2.dilate(keep, np.ones((3, 3), np.uint8))
 
 
-# Measured so the drawing's center lands on the real prism at the approach.
-# The full 22 mm centering leaves the drawing on the cup rim at the drop.
-# Lands the drawing on the real prism in the approach frame. It eases back to
-# zero before the drop, so the cup still holds the colliding box.
-_BLOCK_DRAW_OFFSET = np.array([-0.0140, 0.0180, 0.0], dtype=np.float64)
+# 16 mm along the same direction as the 23 mm centering. The 23 mm offset
+# put the prism past the fingertips with a band of table between them. The
+# real prism sits in that gap. This still eases to zero before the drop.
+_BLOCK_DRAW_OFFSET = np.array([-0.0098, 0.0126, 0.0], dtype=np.float64)
 
 
 def _place_block_drawing(
@@ -260,10 +259,10 @@ def _place_block_drawing(
 def _finger_visuals(model: mujoco.MjModel) -> list[tuple[int, float, float]]:
     """Visual finger meshes, and how far to pull each one back while the hand is open.
 
-    The real fingertips stop short of the prism, with wood between them. The
-    Robotiq meshes reach it. The pull is along the finger, toward the knuckle,
-    and it is undone while the hand is closed so the pads still meet the block.
-    Collision geoms are group 3 and are left alone.
+    The real fingertips stop just short of the prism. A 20 mm pull left a band
+    of table. 4 mm, 2 mm, and 3 mm leave the prism in the gap. The pull is
+    undone while the hand is closed. Collision geoms are group 3 and are left
+    alone.
     """
     rows: list[tuple[int, float, float]] = []
     for geom in range(model.ngeom):
@@ -271,11 +270,11 @@ def _finger_visuals(model: mujoco.MjModel) -> list[tuple[int, float, float]]:
             continue
         body = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[geom])) or ""
         if body.endswith("spring_link"):
-            pull = 0.020
+            pull = 0.004
         elif body.endswith("follower"):
-            pull = 0.012
+            pull = 0.002
         elif body.endswith("_pad"):
-            pull = 0.014
+            pull = 0.003
         else:
             continue
         rows.append((geom, float(model.geom_pos[geom, 2]), pull))
