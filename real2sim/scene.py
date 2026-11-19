@@ -185,12 +185,15 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
 
     block = spec.worldbody.add_body(name="yellow", pos=list(scene.block_pos))
     block.add_freejoint(name="yellow_free")
+    # The real block is a translucent prism. Alpha does not enter the contact.
+    block_rgba = list(scene.block_rgba)
+    block_rgba[3] = 0.62
     yellow = block.add_geom(
         name="yellow_geom",
         type=mujoco.mjtGeom.mjGEOM_BOX,
         size=[scene.block_half, scene.block_half, scene.block_half],
         mass=0.035,
-        rgba=list(scene.block_rgba),
+        rgba=block_rgba,
         condim=6,
     )
     yellow.friction = [2.5, 0.1, 0.01]

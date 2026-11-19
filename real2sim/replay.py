@@ -114,6 +114,8 @@ def _object_mask(real_bgr: np.ndarray, table_only: bool) -> np.ndarray:
     mask = np.zeros(real_bgr.shape[:2], dtype=np.uint8)
     for low, high in ranges:
         mask = cv2.bitwise_or(mask, cv2.inRange(hsv, low, high))
+    # The cube's shaded face sits just under hue 70, so the strict range leaves it.
+    teal = cv2.inRange(hsv, (62, 40, 40), (100, 255, 220))
     count, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
     keep = np.zeros_like(mask)
     height = real_bgr.shape[0]
@@ -128,9 +130,27 @@ def _object_mask(real_bgr: np.ndarray, table_only: bool) -> np.ndarray:
         if table_only and center_row < height * 0.46:
             continue
         keep[labels == index] = 255
-    if keep.max() == 0:
+    if keep.max() == 0 and teal.max() == 0:
         return keep
-    return cv2.dilate(keep, np.ones((5, 5), np.uint8))
+    keep = cv2.dilate(keep, np.ones((5, 5), np.uint8))
+    # Grow only the cube, and only where the wider hue is still a small blob.
+    teal_count, teal_labels, teal_stats, _ = cv2.connectedComponentsWithStats(teal)
+    teal_keep = np.zeros_like(keep)
+    for index in range(1, teal_count):
+        area = int(teal_stats[index, cv2.CC_STAT_AREA])
+        if not 30 <= area <= 2500:
+            continue
+        width = int(teal_stats[index, cv2.CC_STAT_WIDTH])
+        component_height = int(teal_stats[index, cv2.CC_STAT_HEIGHT])
+        if max(width, component_height) > 3 * max(1, min(width, component_height)):
+            continue
+        top = int(teal_stats[index, cv2.CC_STAT_TOP])
+        if table_only and top + component_height / 2.0 < height * 0.46:
+            continue
+        teal_keep[teal_labels == index] = 255
+    if teal_keep.max() > 0:
+        keep = cv2.bitwise_or(keep, cv2.dilate(teal_keep, np.ones((15, 15), np.uint8)))
+    return keep
 
 
 def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
@@ -303,8 +323,13 @@ def rollout(
         shown.geomgroup[3] = 0
         for name in frames:
             if name == "wrist":
-                # The lagged hand is the one around the block. The camera rides that flange.
-                if held is not None:
+                # Before the fingers close, the logged arm is where the video's
+                # fingertips are. The lagged flange puts the block inside the jaw.
+                # Once the hand is holding the block, the camera rides that flange.
+                if held is not None and index < int(grasp_index):
+                    data.qpos[:7] = episode.joint_position[index]
+                    mujoco.mj_forward(model, data)
+                elif held is not None:
                     data.qpos[:] = held
                     mujoco.mj_forward(model, data)
                 _wrist_on_flange(model, data, episode, index, flange, camera_ids["wrist"])
