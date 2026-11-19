@@ -121,7 +121,8 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
     # The stereo sample is the shadowed face and reads as a cyan highlight.
     # A lighter blue is what keeps the skin from looking like that highlight.
     cup_mat.rgba = [0.25, 0.55, 0.75, 1.0]
-    bottom.rgba = [0.25, 0.55, 0.75, 1.0]
+    # The floor is in shadow. The same blue as the wall reads as a bright hole.
+    bottom.rgba = [0.10, 0.28, 0.42, 1.0]
     cup_mat.specular = 0.02
     cup_mat.shininess = 0.03
     drawn = cup.add_geom(
