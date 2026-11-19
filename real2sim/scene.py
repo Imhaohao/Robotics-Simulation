@@ -192,14 +192,15 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     if scene.texture_dir:
         top.material = "wood_mat"
         top.rgba = [1.0, 1.0, 1.0, 1.0]
-    # The wrist drop frame has a piece of tape on the table, to the right of
-    # the cup. These corners are that strip, unprojected onto the table.
-    # It is on the table body, so the fixed cameras keep the photograph.
+    # The white pixels of the tape, not the wood around them. A wider mask
+    # had put the rectangle 14 mm off the strip. It is on the table body, so
+    # the fixed cameras keep the photograph.
     tape = table.add_geom(
         name="tape",
         type=mujoco.mjtGeom.mjGEOM_BOX,
-        pos=[0.559 - scene.table_center[0], 0.043 - scene.table_center[1], 0.0206],
-        size=[0.0113, 0.0232, 0.0004],
+        pos=[0.5582 - scene.table_center[0], 0.0566 - scene.table_center[1], 0.0204],
+        quat=[0.82806, 0.0, 0.0, -0.56064],
+        size=[0.0180, 0.0065, 0.0003],
         rgba=[0.86, 0.84, 0.78, 1.0],
         contype=0,
         conaffinity=0,
@@ -275,7 +276,7 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
         name="yellow_draw",
         type=mujoco.mjtGeom.mjGEOM_MESH,
         meshname="yellow_prism",
-        pos=[-0.0082, 0.0160, 0.0],
+        pos=[-0.0140, 0.0180, 0.0],
         mass=0.0,
         material="block_matte",
         rgba=block_rgba,

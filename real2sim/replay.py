@@ -177,8 +177,9 @@ def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
 
 # Measured so the drawing's center lands on the real prism at the approach.
 # The full 22 mm centering leaves the drawing on the cup rim at the drop.
-# 18 mm puts the drawing on the prism. 10 mm puts it back in the finger opening.
-_BLOCK_DRAW_OFFSET = np.array([-0.0082, 0.0160, 0.0], dtype=np.float64)
+# Lands the drawing on the real prism in the approach frame. It eases back to
+# zero before the drop, so the cup still holds the colliding box.
+_BLOCK_DRAW_OFFSET = np.array([-0.0140, 0.0180, 0.0], dtype=np.float64)
 
 
 def _place_block_drawing(model: mujoco.MjModel, index: int, grasp_index: int) -> None:
