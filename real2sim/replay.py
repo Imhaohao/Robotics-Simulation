@@ -198,14 +198,14 @@ def _shaded_block(hsv: np.ndarray, table_only: bool) -> np.ndarray:
 
 
 def _cup_face(hsv: np.ndarray, table_only: bool) -> np.ndarray:
-    """The drop-frame cup is hue about 92, just under the blue range.
+    """The drop-frame cup is hue about 92, and its rim is darker, about hue 82.
 
     A wider blue range also paints the mounts on the right of ext1. This band
-    is only the greener face, and only a compact blob in the middle of the frame.
+    is only that face and its rim, and only a compact blob in the middle of the frame.
     """
     height, width = hsv.shape[:2]
     scale = (height * width) / (360.0 * 640.0)
-    mask = cv2.inRange(hsv, (85, 45, 40), (96, 255, 255))
+    mask = cv2.inRange(hsv, (78, 28, 30), (96, 255, 255))
     count, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
     keep = np.zeros((height, width), dtype=np.uint8)
     for index in range(1, count):
@@ -224,10 +224,13 @@ def _cup_face(hsv: np.ndarray, table_only: bool) -> np.ndarray:
             continue
         if max(component_width, component_height) > 2.2 * max(1, min(component_width, component_height)):
             continue
+        # The dark rim is short. A blob shorter than the cup is a mark on the table.
+        if component_height < 22.0 * (scale ** 0.5):
+            continue
         keep[labels == index] = 255
     if keep.max() == 0:
         return keep
-    grow = max(5, int(round(height * 0.02)))
+    grow = max(7, int(round(height * 0.035)))
     if grow % 2 == 0:
         grow += 1
     return cv2.dilate(keep, np.ones((grow, grow), np.uint8))
