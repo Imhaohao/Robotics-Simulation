@@ -175,6 +175,26 @@ def _wrist_hand(real_bgr: np.ndarray) -> np.ndarray:
     return cv2.dilate(keep, np.ones((3, 3), np.uint8))
 
 
+# Measured so the drawing's center lands on the real prism at the approach.
+# The full 22 mm centering leaves the drawing on the cup rim at the drop.
+_BLOCK_DRAW_OFFSET = np.array([-0.0082, 0.0160, 0.0], dtype=np.float64)
+
+
+def _place_block_drawing(model: mujoco.MjModel, index: int, grasp_index: int) -> None:
+    geom = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "yellow_draw")
+    if geom < 0:
+        return
+    start = grasp_index - 6
+    end = grasp_index + 8
+    if index <= start:
+        scale = 1.0
+    elif index >= end:
+        scale = 0.0
+    else:
+        scale = 1.0 - (index - start) / (end - start)
+    model.geom_pos[geom, :3] = _BLOCK_DRAW_OFFSET * scale
+
+
 def _over_plate(
     rgb: np.ndarray,
     seg: np.ndarray,
@@ -314,6 +334,11 @@ def rollout(
         cup_path[index], _ = _body(model, data, "cup")
         if not render or index >= video_steps:
             continue
+        # The colliding box is centered on the left edge of the prism, so a
+        # drawing there sits in the finger opening. Before the fingers close,
+        # the drawing is slid onto the prism. It eases back onto the colliding
+        # box as the hand takes it, and it is back there for the drop.
+        _place_block_drawing(model, index, int(grasp_index))
         # cam_xpos is filled by the forward below. A pose written after the
         # step would otherwise leave the renderer on the previous camera.
         held = data.qpos.copy() if draw_logged_arm else None

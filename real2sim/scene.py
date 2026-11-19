@@ -120,16 +120,20 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     spec.option.timestep = 0.001
     spec.visual.global_.offwidth = 1280
     spec.visual.global_.offheight = 720
-    # A directional headlight turns the smooth cup into a glassy dome.
-    spec.visual.headlight.ambient = [0.95, 0.90, 0.82]
+    # The headlight sits on the camera, so any diffuse there is a highlight on
+    # the cup. An overhead light gives the cup a shaded side and a contact
+    # shadow. Specular stays off.
+    spec.visual.headlight.ambient = [0.72, 0.66, 0.56]
     spec.visual.headlight.diffuse = [0.0, 0.0, 0.0]
     spec.visual.headlight.specular = [0.0, 0.0, 0.0]
     spec.worldbody.add_light(
-        pos=[0.35, -0.15, 1.7],
-        dir=[0.15, 0.25, -1.0],
-        diffuse=[0.0, 0.0, 0.0],
-        ambient=[0.0, 0.0, 0.0],
+        pos=[0.2, 0.0, 1.8],
+        dir=[0.05, 0.05, -1.0],
+        diffuse=[0.50, 0.46, 0.38],
+        specular=[0.0, 0.0, 0.0],
+        ambient=[0.02, 0.02, 0.02],
         cutoff=80,
+        castshadow=True,
     )
 
     if scene.texture_dir:
@@ -212,13 +216,30 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
         type=mujoco.mjtGeom.mjGEOM_BOX,
         size=[scene.block_half, scene.block_half, scene.block_half],
         mass=0.035,
-        material="block_matte",
         rgba=block_rgba,
         condim=6,
+        group=3,
     )
     yellow.friction = [2.5, 0.1, 0.01]
     yellow.solref = [0.01, 1.0]
     yellow.solimp = [0.95, 0.99, 0.001, 0.5, 2.0]
+    # The colliding box is centered on the left edge of the real prism, so a
+    # drawing there sits in the finger opening. This copy is only drawn. The
+    # replay slides it onto the prism before the grasp and back onto the box
+    # once the hand is holding it, so the drop still shows the block in the cup.
+    drawn_block = block.add_geom(
+        name="yellow_draw",
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=[scene.block_half, scene.block_half, scene.block_half],
+        pos=[-0.0082, 0.0160, 0.0],
+        mass=0.0,
+        material="block_matte",
+        rgba=block_rgba,
+        contype=0,
+        conaffinity=0,
+        group=0,
+    )
+    del drawn_block
 
     _add_cup(spec, scene)
 
