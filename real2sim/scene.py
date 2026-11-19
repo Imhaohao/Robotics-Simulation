@@ -32,6 +32,29 @@ class SceneSpec:
     texture_dir: str | None
 
 
+def _hex_prism(half: float) -> tuple[list[float], list[int]]:
+    """A prism whose flat-to-flat width matches the cube. Visual only."""
+    radius = half / math.cos(math.pi / 6.0)
+    vertices: list[float] = []
+    for z in (-half, half):
+        for index in range(6):
+            angle = math.pi / 6.0 + index * math.pi / 3.0
+            vertices.extend((radius * math.cos(angle), radius * math.sin(angle), z))
+    one_sided: list[int] = []
+    for index in range(1, 5):
+        one_sided.extend((0, index, index + 1))
+        one_sided.extend((6, 6 + index + 1, 6 + index))
+    for index in range(6):
+        nxt = (index + 1) % 6
+        a, b, c, d = index, nxt, 6 + index, 6 + nxt
+        one_sided.extend((a, b, d, a, d, c))
+    faces: list[int] = []
+    for index in range(0, len(one_sided), 3):
+        a, b, c = one_sided[index : index + 3]
+        faces.extend((a, b, c, a, c, b))
+    return vertices, faces
+
+
 def _cup_skin(scene: SceneSpec) -> tuple[list[float], list[int]]:
     """The outer wall only. An inner wall 1.6 mm in z-fights and reads as ribs."""
     count = 512
@@ -242,10 +265,16 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     # toward the prism. Ten millimetres puts it back in the opening. The replay
     # eases it back onto the box once the hand is holding it, so the drop still
     # shows the block in the cup.
+    # The wrist sees a hexagonal prism. The colliding shape stays the box.
+    prism = spec.add_mesh()
+    prism.name = "yellow_prism"
+    vertices, faces = _hex_prism(scene.block_half)
+    prism.uservert = vertices
+    prism.userface = faces
     drawn_block = block.add_geom(
         name="yellow_draw",
-        type=mujoco.mjtGeom.mjGEOM_BOX,
-        size=[scene.block_half, scene.block_half, scene.block_half],
+        type=mujoco.mjtGeom.mjGEOM_MESH,
+        meshname="yellow_prism",
         pos=[-0.0082, 0.0160, 0.0],
         mass=0.0,
         material="block_matte",
