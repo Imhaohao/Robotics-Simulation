@@ -116,7 +116,7 @@
     "reproj_ext2_blue_px": 41.11670929209149,
     "reproj_ext1_teal_px": 532.0037559847071,
     "reproj_ext2_teal_px": 79.00814198645011,
-    "iou_ext1_yellow": 0.9872478332491743,
+    "iou_ext1_yellow": 0.986916715644479,
     "iou_ext1_blue": 0.820028053912301,
     "iou_ext1_teal": 0.6505898921801768,
     "reproj_frame0_ext1_yellow_px": 0.8588534110886102,
@@ -135,6 +135,6 @@
   },
   "passed": true,
   "deterministic_calibration": true,
-  "simulate_s": 52.90663510600007,
+  "simulate_s": 51.56540929000039,
   "block_peak_z": 0.13936278938585103
 }

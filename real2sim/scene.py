@@ -241,7 +241,7 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     block.add_freejoint(name="yellow_free")
     # The real block is a translucent prism. Alpha does not enter the contact.
     block_rgba = list(scene.block_rgba)
-    block_rgba[3] = 0.45
+    block_rgba[3] = 0.22
     # A default specular makes the face a hard highlight. The real block is frosted.
     block_mat = spec.add_material()
     block_mat.name = "block_matte"
