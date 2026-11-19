@@ -22,16 +22,25 @@ def menagerie(root: Path) -> tuple[Path, Path]:
     return arm, hand
 
 
-def robot_spec(assets: Path) -> mujoco.MjSpec:
+def robot_spec(assets: Path, hand_yaw_deg: float = 88.0) -> mujoco.MjSpec:
+    """Attach the 2F-85 so the fingers enter the wrist frame from the bottom.
+
+    The Menagerie mount draws the hand from the side. A 90 degree yaw matches
+    the real wrist picture and leaves the block on the rim when the log ends.
+    88 degrees keeps that view and finishes the drop inside the logged horizon.
+    The pinch stays on the flange axis.
+    """
     arm, hand = menagerie(assets)
     spec = mujoco.MjSpec.from_file(str(arm))
     spec.option.cone = int(mujoco.mjtCone.mjCONE_ELLIPTIC)
     spec.option.impratio = 10
-    spec.attach(
+    frame = spec.attach(
         mujoco.MjSpec.from_file(str(hand)),
         site=spec.site(FLANGE_SITE),
         prefix="g_",
     )
+    half = float(np.deg2rad(hand_yaw_deg) / 2.0)
+    frame.quat = [float(np.cos(half)), 0.0, 0.0, float(np.sin(half))]
     return spec
 
 

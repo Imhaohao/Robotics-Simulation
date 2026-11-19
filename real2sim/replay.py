@@ -42,6 +42,38 @@ def _camera_pose(extrinsics: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return translation, quat
 
 
+def _wrist_on_flange(
+    model: mujoco.MjModel,
+    data: mujoco.MjData,
+    episode: Episode,
+    index: int,
+    flange: int,
+    camera_id: int,
+) -> None:
+    """Hang the wrist camera on the flange that is holding the block.
+
+    The logged camera, aimed at the lagged hand, shows the CAD beside the
+    fingers. The offset is the logged camera relative to the logged flange,
+    applied to the flange in the simulation.
+    """
+    flange_translation = episode.cartesian[index, :3]
+    flange_rotation = Rotation.from_euler("xyz", episode.cartesian[index, 3:]).as_matrix()
+    camera_translation, camera_quat = _camera_pose(episode.wrist_extrinsics[index])
+    camera_rotation = Rotation.from_quat(
+        [camera_quat[1], camera_quat[2], camera_quat[3], camera_quat[0]]
+    ).as_matrix()
+    offset_rotation = flange_rotation.T @ camera_rotation
+    offset_translation = flange_rotation.T @ (camera_translation - flange_translation)
+    site_rotation = data.site_xmat[flange].reshape(3, 3)
+    world_rotation = site_rotation @ offset_rotation
+    world_translation = data.site_xpos[flange] + site_rotation @ offset_translation
+    quat = np.zeros(4, dtype=np.float64)
+    mujoco.mju_mat2Quat(quat, np.ascontiguousarray(world_rotation).reshape(9))
+    model.cam_pos[camera_id] = world_translation
+    model.cam_quat[camera_id] = quat
+    model.cam_fovy[camera_id] = _fovy(episode.cameras["wrist"])
+
+
 def _body(model: mujoco.MjModel, data: mujoco.MjData, name: str) -> tuple[np.ndarray, np.ndarray]:
     body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name)
     return data.xpos[body].copy(), data.xmat[body].reshape(3, 3).copy()
@@ -226,26 +258,32 @@ def rollout(
         cup_path[index], _ = _body(model, data, "cup")
         if not render or index >= video_steps:
             continue
-        wrist_t, wrist_q = _camera_pose(episode.wrist_extrinsics[index])
-        model.cam_pos[camera_ids["wrist"]] = wrist_t
-        model.cam_quat[camera_ids["wrist"]] = wrist_q
-        model.cam_fovy[camera_ids["wrist"]] = _fovy(episode.cameras["wrist"])
-        # cam_xpos is filled by the last forward. The wrist pose is written after
-        # that step, so the renderer would keep the previous frame's camera.
+        # cam_xpos is filled by the forward below. A pose written after the
+        # step would otherwise leave the renderer on the previous camera.
         held = data.qpos.copy() if draw_logged_arm else None
-        if draw_logged_arm:
-            # The picture uses the logged arm. Physics keeps the lagged joints,
-            # which are what close on the block. Restored after the frame.
-            data.qpos[:7] = episode.joint_position[index]
-        mujoco.mj_forward(model, data)
         shown = mujoco.MjvOption()
         shown.geomgroup[:] = 1
         # Group 3 is the capsule wall. It collides. The skin is what the camera draws.
         shown.geomgroup[3] = 0
         for name in frames:
+            if name == "wrist":
+                # The lagged hand is the one around the block. The camera rides that flange.
+                if held is not None:
+                    data.qpos[:] = held
+                    mujoco.mj_forward(model, data)
+                _wrist_on_flange(model, data, episode, index, flange, camera_ids["wrist"])
+            elif held is not None:
+                data.qpos[:7] = episode.joint_position[index]
+            mujoco.mj_forward(model, data)
             renderer.update_scene(data, camera=name, scene_option=shown)
             rgb = renderer.render().copy()
-            if composite and real_frames is not None and index < len(real_frames[name]):
+            # The real wrist frame is the real fingers. This panel is the simulated hand only.
+            if (
+                composite
+                and real_frames is not None
+                and index < len(real_frames[name])
+                and name != "wrist"
+            ):
                 renderer.enable_segmentation_rendering()
                 renderer.update_scene(data, camera=name, scene_option=shown)
                 seg = renderer.render()
@@ -255,8 +293,7 @@ def rollout(
                     seg,
                     real_frames[name][index],
                     foreground,
-                    table_only=(name != "wrist"),
-                    cover_hand=(name == "wrist"),
+                    table_only=True,
                 )
                 if name == "ext1" and index == 0:
                     background_match = match

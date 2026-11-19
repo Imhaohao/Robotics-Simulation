@@ -22,7 +22,7 @@
   ],
   "cup_pos": [
     0.5789381091628201,
-    -0.05240723808202704,
+    -0.05240723808202705,
     0.012935494803779549
   ],
   "cup_height": 0.08132957636002222,
@@ -52,5 +52,5 @@
     0.4235294117647059,
     1.0
   ],
-  "texture_dir": "/workspace/outputs/textures"
+  "texture_dir": "/agent/repos/Robotics-Simulation/outputs/textures"
 }

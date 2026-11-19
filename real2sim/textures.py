@@ -16,7 +16,11 @@ def _wood_patch(frame_bgr: np.ndarray) -> np.ndarray:
     objects = cv2.dilate(objects, np.ones((5, 5), np.uint8))
     if int(objects.sum()) > 0:
         crop = cv2.inpaint(crop, objects, 4, cv2.INPAINT_TELEA)
-    return cv2.resize(crop, (512, 512), interpolation=cv2.INTER_AREA)
+    patch = cv2.resize(crop, (512, 512), interpolation=cv2.INTER_AREA)
+    # The lights clip the raw table photo to yellow in the wrist camera.
+    hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+    hsv[:, :, 2] = np.clip(hsv[:, :, 2].astype(np.float32) * 0.42, 0, 255).astype(np.uint8)
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
 def _stripe_column(frame_bgr: np.ndarray) -> np.ndarray:
