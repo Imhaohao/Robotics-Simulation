@@ -130,7 +130,7 @@ async function tick() {
   ).join("");
   const log = data.log || [];
   document.getElementById("log").innerHTML = log.map(row => `<li>${row.step} — ${row.detail}</li>`).join("");
-  const stills = ["ext1_000", "ext1_080", "ext1_099"].map(name =>
+  const stills = ["wrist_040", "wrist_080", "ext1_080", "ext2_080"].map(name =>
     `<figure><img src="/outputs/stills/${name}.jpg?t=${Date.now()}" alt="${name}" /><figcaption>${name.replace("_", " frame ")} · real | sim</figcaption></figure>`
   ).join("");
   document.getElementById("stills").innerHTML = stills;
