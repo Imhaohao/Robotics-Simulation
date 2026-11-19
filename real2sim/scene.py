@@ -193,22 +193,8 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     if scene.texture_dir:
         top.material = "wood_mat"
         top.rgba = [1.0, 1.0, 1.0, 1.0]
-    # Fitted to the white strip in the wrist drop frame: 3.7 cm by 1.0 cm,
-    # yawed so the long side follows the strip. A centroid of the bright
-    # pixels sits on the dense end and put the rectangle off the strip.
-    # It is on the table body, so the fixed cameras keep the photograph.
-    tape = table.add_geom(
-        name="tape",
-        type=mujoco.mjtGeom.mjGEOM_BOX,
-        pos=[0.5594 - scene.table_center[0], 0.0440 - scene.table_center[1], 0.0204],
-        quat=[0.65013, 0.0, 0.0, 0.75982],
-        size=[0.0186, 0.0051, 0.0003],
-        rgba=[0.86, 0.84, 0.78, 1.0],
-        contype=0,
-        conaffinity=0,
-        group=0,
-    )
-    del tape
+    # A pale rectangle was fitted to the white strip, but in the wrist view it
+    # reads as a bar floating over the table, so it is not drawn.
 
     mount = spec.worldbody.add_body(name="mount", pos=[0.0, 0.0, scene.table_z / 2.0])
     puck = mount.add_geom(
