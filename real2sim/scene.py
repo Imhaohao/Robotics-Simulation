@@ -92,10 +92,20 @@ def _add_cup(spec: mujoco.MjSpec, scene: SceneSpec) -> None:
     skin.uservert = vertices
     skin.userface = faces
     skin.smoothnormal = True
+    # The real cup is matte. The default specular turns this skin into a glassy dome.
+    cup_mat = spec.add_material()
+    cup_mat.name = "cup_matte"
+    # The stereo sample is the shadowed face and reads as a cyan highlight.
+    # A lighter blue is what keeps the skin from looking like that highlight.
+    cup_mat.rgba = [0.25, 0.55, 0.75, 1.0]
+    bottom.rgba = [0.25, 0.55, 0.75, 1.0]
+    cup_mat.specular = 0.02
+    cup_mat.shininess = 0.03
     drawn = cup.add_geom(
         name="cup_skin",
         type=mujoco.mjtGeom.mjGEOM_MESH,
         meshname="cup_skin",
+        material="cup_matte",
         rgba=list(scene.cup_rgba),
         mass=0.0,
         contype=0,
@@ -110,14 +120,15 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     spec.option.timestep = 0.001
     spec.visual.global_.offwidth = 1280
     spec.visual.global_.offheight = 720
-    spec.visual.headlight.ambient = [0.72, 0.66, 0.55]
-    spec.visual.headlight.diffuse = [0.55, 0.53, 0.48]
-    spec.visual.headlight.specular = [0.08, 0.08, 0.08]
+    # A directional headlight turns the smooth cup into a glassy dome.
+    spec.visual.headlight.ambient = [0.95, 0.90, 0.82]
+    spec.visual.headlight.diffuse = [0.0, 0.0, 0.0]
+    spec.visual.headlight.specular = [0.0, 0.0, 0.0]
     spec.worldbody.add_light(
         pos=[0.35, -0.15, 1.7],
         dir=[0.15, 0.25, -1.0],
-        diffuse=[0.16, 0.16, 0.14],
-        ambient=[0.18, 0.18, 0.17],
+        diffuse=[0.0, 0.0, 0.0],
+        ambient=[0.0, 0.0, 0.0],
         cutoff=80,
     )
 
@@ -190,11 +201,18 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     # The real block is a translucent prism. Alpha does not enter the contact.
     block_rgba = list(scene.block_rgba)
     block_rgba[3] = 0.45
+    # A default specular makes the face a hard highlight. The real block is frosted.
+    block_mat = spec.add_material()
+    block_mat.name = "block_matte"
+    block_mat.rgba = block_rgba
+    block_mat.specular = 0.02
+    block_mat.shininess = 0.03
     yellow = block.add_geom(
         name="yellow_geom",
         type=mujoco.mjtGeom.mjGEOM_BOX,
         size=[scene.block_half, scene.block_half, scene.block_half],
         mass=0.035,
+        material="block_matte",
         rgba=block_rgba,
         condim=6,
     )
