@@ -135,6 +135,6 @@
   },
   "passed": true,
   "deterministic_calibration": true,
-  "simulate_s": 54.05299248600022,
+  "simulate_s": 52.925753016999806,
   "block_peak_z": 0.13936278938585103
 }

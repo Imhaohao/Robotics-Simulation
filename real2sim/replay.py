@@ -282,15 +282,15 @@ def _place_block_drawing(
     # The fingers still hold the box at frame 80 (center z 6.8 cm). The video
     # shows the prism in the cup, sticking up past the rim. 4.2 cm put the
     # drawing fully inside, which the side camera drew as a patch on the wall.
-    # 2.8 cm leaves the top of the prism at the rim.
+    # 1.6 cm leaves the prism standing in the opening.
     begin = release_index - 6
     full = release_index - 2
     done = release_index + 8
     if begin < index < done:
         if index <= full:
-            drop = -0.028 * (index - begin) / (full - begin)
+            drop = -0.016 * (index - begin) / (full - begin)
         else:
-            drop = -0.028 * (1.0 - (index - full) / (done - full))
+            drop = -0.016 * (1.0 - (index - full) / (done - full))
         model.geom_pos[geom, 2] += drop
 
 
