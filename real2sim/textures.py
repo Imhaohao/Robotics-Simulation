@@ -19,7 +19,7 @@ def _wood_patch(frame_bgr: np.ndarray) -> np.ndarray:
     patch = cv2.resize(crop, (512, 512), interpolation=cv2.INTER_AREA)
     # The lights clip the raw table photo to yellow in the wrist camera.
     hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
-    hsv[:, :, 2] = np.clip(hsv[:, :, 2].astype(np.float32) * 0.42, 0, 255).astype(np.uint8)
+    hsv[:, :, 2] = np.clip(hsv[:, :, 2].astype(np.float32) * 0.65, 0, 255).astype(np.uint8)
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 

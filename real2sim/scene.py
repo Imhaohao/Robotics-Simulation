@@ -110,13 +110,13 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     spec.option.timestep = 0.001
     spec.visual.global_.offwidth = 1280
     spec.visual.global_.offheight = 720
-    spec.visual.headlight.ambient = [0.45, 0.44, 0.42]
+    spec.visual.headlight.ambient = [0.72, 0.66, 0.55]
     spec.visual.headlight.diffuse = [0.55, 0.53, 0.48]
     spec.visual.headlight.specular = [0.08, 0.08, 0.08]
     spec.worldbody.add_light(
         pos=[0.35, -0.15, 1.7],
         dir=[0.15, 0.25, -1.0],
-        diffuse=[0.65, 0.62, 0.55],
+        diffuse=[0.16, 0.16, 0.14],
         ambient=[0.18, 0.18, 0.17],
         cutoff=80,
     )
