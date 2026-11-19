@@ -156,6 +156,7 @@ def _object_mask(real_bgr: np.ndarray, table_only: bool) -> np.ndarray:
     # saturation merges the face into the wood. Keep a compact blob only when it
     # is clearly more saturated than the wood around it.
     keep = cv2.bitwise_or(keep, _shaded_block(hsv, table_only=table_only))
+    keep = cv2.bitwise_or(keep, _cup_face(hsv, table_only=table_only))
     return keep
 
 
@@ -191,6 +192,42 @@ def _shaded_block(hsv: np.ndarray, table_only: bool) -> np.ndarray:
     if keep.max() == 0:
         return keep
     grow = max(5, int(round(height * 0.028)))
+    if grow % 2 == 0:
+        grow += 1
+    return cv2.dilate(keep, np.ones((grow, grow), np.uint8))
+
+
+def _cup_face(hsv: np.ndarray, table_only: bool) -> np.ndarray:
+    """The drop-frame cup is hue about 92, just under the blue range.
+
+    A wider blue range also paints the mounts on the right of ext1. This band
+    is only the greener face, and only a compact blob in the middle of the frame.
+    """
+    height, width = hsv.shape[:2]
+    scale = (height * width) / (360.0 * 640.0)
+    mask = cv2.inRange(hsv, (85, 45, 40), (96, 255, 255))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
+    keep = np.zeros((height, width), dtype=np.uint8)
+    for index in range(1, count):
+        area = int(stats[index, cv2.CC_STAT_AREA])
+        if not 80 * scale <= area <= 4000 * scale:
+            continue
+        left = int(stats[index, cv2.CC_STAT_LEFT])
+        top = int(stats[index, cv2.CC_STAT_TOP])
+        component_width = int(stats[index, cv2.CC_STAT_WIDTH])
+        component_height = int(stats[index, cv2.CC_STAT_HEIGHT])
+        cx = left + component_width / 2.0
+        cy = top + component_height / 2.0
+        if table_only and cy < height * 0.40:
+            continue
+        if not 0.20 * width < cx < 0.80 * width:
+            continue
+        if max(component_width, component_height) > 2.2 * max(1, min(component_width, component_height)):
+            continue
+        keep[labels == index] = 255
+    if keep.max() == 0:
+        return keep
+    grow = max(5, int(round(height * 0.02)))
     if grow % 2 == 0:
         grow += 1
     return cv2.dilate(keep, np.ones((grow, grow), np.uint8))
@@ -243,16 +280,17 @@ def _place_block_drawing(
         scale = 1.0 - (index - start) / (end - start)
     model.geom_pos[geom, :3] = _BLOCK_DRAW_OFFSET * scale
     # The fingers still hold the box at frame 80 (center z 6.8 cm). The video
-    # already shows the prism in the cup. The drawing slides down into the cup
-    # over those frames and is back on the box once the box has landed.
+    # shows the prism in the cup, sticking up past the rim. 4.2 cm put the
+    # drawing fully inside, which the side camera drew as a patch on the wall.
+    # 2.8 cm leaves the top of the prism at the rim.
     begin = release_index - 6
     full = release_index - 2
     done = release_index + 8
     if begin < index < done:
         if index <= full:
-            drop = -0.042 * (index - begin) / (full - begin)
+            drop = -0.028 * (index - begin) / (full - begin)
         else:
-            drop = -0.042 * (1.0 - (index - full) / (done - full))
+            drop = -0.028 * (1.0 - (index - full) / (done - full))
         model.geom_pos[geom, 2] += drop
 
 
