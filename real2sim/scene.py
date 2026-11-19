@@ -130,8 +130,10 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
             texture.file = str(Path(scene.texture_dir, filename).resolve())
             material = spec.add_material()
             material.name = f"{name}_mat"
-            material.texuniform = True
-            material.texrepeat = [1.5, 1.5] if name == "wood" else [1.0, 1.0]
+            # The wood photo is one patch of the real table, shown once. Averaging
+            # it (texuniform) is the flat tone. The stripe stays averaged.
+            material.texuniform = name != "wood"
+            material.texrepeat = [1.2, 1.2] if name == "wood" else [1.0, 1.0]
             # The texture is the color. A tint here would stain the photograph.
             material.rgba = [1.0, 1.0, 1.0, 1.0]
             slots = [""] * 10
@@ -187,7 +189,7 @@ def build_model(scene: SceneSpec, assets: Path, weld_block: bool = False) -> muj
     block.add_freejoint(name="yellow_free")
     # The real block is a translucent prism. Alpha does not enter the contact.
     block_rgba = list(scene.block_rgba)
-    block_rgba[3] = 0.62
+    block_rgba[3] = 0.45
     yellow = block.add_geom(
         name="yellow_geom",
         type=mujoco.mjtGeom.mjGEOM_BOX,

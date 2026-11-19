@@ -314,7 +314,7 @@ def run(
     stereo = read_video(episode.cameras["ext1"].stereo_video)[0]
     real = {name: read_video(camera.video) for name, camera in episode.cameras.items()}
     texture_dir = out / "textures"
-    write_textures(stereo[:, : stereo.shape[1] // 2], texture_dir)
+    write_textures(stereo[:, : stereo.shape[1] // 2], texture_dir, real["wrist"][40])
     scene, provenance = calibrate(episode, assets, stereo, texture_dir)
     # A second calibration must reproduce the scene. Stereo matching is deterministic.
     again, _ = calibrate(episode, assets, stereo, texture_dir)
